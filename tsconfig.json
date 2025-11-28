@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2016",
+    "module": "commonjs",             /* <--- This fixes the import error */
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,          /* <--- Allows 'import express from express' */
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"]
+}
