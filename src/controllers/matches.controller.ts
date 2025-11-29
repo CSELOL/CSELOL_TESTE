@@ -1,20 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
-import * as service from '../services/matches.service';
+import { Request, Response } from "express";
+import * as matchesService from "../services/matches.service";
 
-
-export async function create(req: Request, res: Response, next: NextFunction) {
-try {
-const created = await service.create(req.body);
-res.status(201).json(created);
-} catch (err) { next(err); }
+export async function getMatches(req: Request, res: Response) {
+  return res.json(await matchesService.getMatches());
 }
 
+export async function getMatchById(req: Request, res: Response) {
+  return res.json(await matchesService.getMatchById(Number(req.params.id)));
+}
 
-export async function updateScore(req: Request, res: Response, next: NextFunction) {
-try {
-const id = Number(req.params.id);
-const { scoreA, scoreB, status } = req.body;
-const updated = await service.updateScore(id, scoreA, scoreB, status);
-res.json(updated);
-} catch (err) { next(err); }
+export async function createMatch(req: Request, res: Response) {
+  return res.status(201).json(await matchesService.createMatch(req.body));
+}
+
+export async function deleteMatch(req: Request, res: Response) {
+  await matchesService.deleteMatch(Number(req.params.id));
+  return res.json({ message: "Match deleted" });
 }

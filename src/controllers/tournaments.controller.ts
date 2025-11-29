@@ -1,29 +1,22 @@
-import { Request, Response, NextFunction } from 'express';
-import * as service from '../services/tournaments.service';
+import { Request, Response } from 'express';
+import { createTournament, getTournaments } from '../services/tournaments.service';
 
-
-export async function list(req: Request, res: Response, next: NextFunction) {
-try {
-const items = await service.findAll();
-res.json(items);
-} catch (err) { next(err); }
+export async function createTournamentController(req: Request, res: Response) {
+  try {
+    const tournament = await createTournament(req.body);
+    return res.status(201).json(tournament);
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || 'Error creating tournament' });
+  }
 }
 
-
-export async function getOne(req: Request, res: Response, next: NextFunction) {
-try {
-const id = Number(req.params.id);
-const item = await service.findById(id);
-if (!item) return res.status(404).json({ error: 'Not found' });
-res.json(item);
-} catch (err) { next(err); }
-}
-
-
-export async function create(req: Request, res: Response, next: NextFunction) {
-try {
-const data = req.body;
-const created = await service.create(data);
-res.status(201).json(created);
-} catch (err) { next(err); }
+export async function getAllTournamentsController(req: Request, res: Response) {
+  try {
+    const tournaments = await getTournaments();
+    return res.json(tournaments);
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
 }

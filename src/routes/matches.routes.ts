@@ -1,12 +1,16 @@
-import { Router } from 'express';
-import * as controller from '../controllers/matches.controller';
-
+import { Router } from "express";
+import {
+  getMatches,
+  getMatchById,
+  createMatch,
+  deleteMatch,
+} from "../controllers/matches.controller";
 
 const router = Router();
 
-
-router.post('/', controller.create);
-router.put('/:id/score', controller.updateScore);
-
+router.get("/", getMatches);
+router.get("/:id", getMatchById);
+router.post("/", createMatch);
+router.delete("/:id", deleteMatch);
 
 export default router;

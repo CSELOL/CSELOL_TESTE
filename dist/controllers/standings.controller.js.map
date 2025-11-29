@@ -1,0 +1,1 @@
+{"version":3,"file":"standings.controller.js","sourceRoot":"","sources":["../../src/controllers/standings.controller.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AAGA,oCAIC;AAND,gFAAkE;AAE3D,KAAK,UAAU,YAAY,CAAC,GAAY,EAAE,GAAa;IAC5D,OAAO,GAAG,CAAC,IAAI,CACb,MAAM,gBAAgB,CAAC,kBAAkB,CAAC,MAAM,CAAC,GAAG,CAAC,MAAM,CAAC,YAAY,CAAC,CAAC,CAC3E,CAAC;AACJ,CAAC"}

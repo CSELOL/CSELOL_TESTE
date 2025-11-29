@@ -1,5 +1,10 @@
 import app from "./app";
 import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 dotenv.config();
 

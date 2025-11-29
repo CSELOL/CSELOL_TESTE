@@ -1,20 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
-import * as service from '../services/teams.service';
+import { Request, Response } from "express";
+import * as teamsService from "../services/teams.service";
 
-
-export async function create(req: Request, res: Response, next: NextFunction) {
-try {
-const created = await service.create(req.body);
-res.status(201).json(created);
-} catch (err) { next(err); }
+export async function getTeams(req: Request, res: Response) {
+  return res.json(await teamsService.getTeams());
 }
 
+export async function getTeamById(req: Request, res: Response) {
+  return res.json(await teamsService.getTeamById(Number(req.params.id)));
+}
 
-export async function getOne(req: Request, res: Response, next: NextFunction) {
-try {
-const id = Number(req.params.id);
-const team = await service.findById(id);
-if (!team) return res.status(404).json({ error: 'Not found' });
-res.json(team);
-} catch (err) { next(err); }
+export async function createTeam(req: Request, res: Response) {
+  return res.status(201).json(await teamsService.createTeam(req.body));
+}
+
+export async function deleteTeam(req: Request, res: Response) {
+  await teamsService.deleteTeam(Number(req.params.id));
+  return res.json({ message: "Team deleted" });
 }

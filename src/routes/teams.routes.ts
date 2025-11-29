@@ -1,14 +1,16 @@
-import { Router } from 'express';
-import * as controller from '../controllers/teams.controller';
-import { validateBody } from '../middlewares/validate.middleware';
-import { CreateTeamSchema } from '../utils/zod-schemas';
-
+import { Router } from "express";
+import {
+  getTeams,
+  getTeamById,
+  createTeam,
+  deleteTeam,
+} from "../controllers/teams.controller";
 
 const router = Router();
 
-
-router.post('/', validateBody(CreateTeamSchema), controller.create);
-router.get('/:id', controller.getOne);
-
+router.get("/", getTeams);
+router.get("/:id", getTeamById);
+router.post("/", createTeam);
+router.delete("/:id", deleteTeam);
 
 export default router;

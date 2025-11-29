@@ -1,13 +1,26 @@
-import pool from '../db';
+import pool from "../db";
 
-
-export async function create(data: any) {
-const { rows } = await pool.query(`INSERT INTO teams (name, tag, logo_url, created_by_user_id) VALUES ($1,$2,$3,$4) RETURNING *`, [data.name, data.tag || null, data.logoUrl || null, data.createdByUserId || null]);
-return rows[0];
+export async function getTeams() {
+  const { rows } = await pool.query("SELECT * FROM teams ORDER BY id");
+  return rows;
 }
 
+export async function getTeamById(id: number) {
+  const { rows } = await pool.query("SELECT * FROM teams WHERE id = $1", [id]);
+  return rows[0];
+}
 
-export async function findById(id: number) {
-const { rows } = await pool.query('SELECT * FROM teams WHERE id = $1', [id]);
-return rows[0];
+export async function createTeam(data: any) {
+  const { name, logo } = data;
+
+  const { rows } = await pool.query(
+    "INSERT INTO teams (name, logo) VALUES ($1, $2) RETURNING *",
+    [name, logo]
+  );
+
+  return rows[0];
+}
+
+export async function deleteTeam(id: number) {
+  await pool.query("DELETE FROM teams WHERE id = $1", [id]);
 }
