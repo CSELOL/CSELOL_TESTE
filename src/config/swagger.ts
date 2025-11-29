@@ -1,20 +1,17 @@
+import { generateOpenApiDocs } from "./openapi";
 import swaggerJSDoc from "swagger-jsdoc";
 
+const generatedSpec = generateOpenApiDocs();
+
 const options: swaggerJSDoc.Options = {
-  definition: {
-    openapi: "3.0.0",
-    info: {
-      title: "CSELOL API",
-      version: "1.0.0",
-      description: "Documentação da API do sistema CSELOL",
-    },
-    servers: [
-      {
-        url: "http://localhost:3333",
-      },
+    definition: generatedSpec as any,
+    apis: [
+        "./src/routes/tournaments.routes.ts",
+        "./src/routes/teams.routes.ts",
+        "./src/routes/matches.routes.ts",
+        "./src/routes/standings.routes.ts",
+        "./src/controllers/*.ts"
     ],
-  },
-  apis: ["./src/routes/*.ts", "./src/controllers/*.ts"], // arquivos que terão doc
 };
 
 export const swaggerSpec = swaggerJSDoc(options);

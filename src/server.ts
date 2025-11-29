@@ -3,7 +3,12 @@ import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  swaggerOptions: {
+    defaultModelsExpandDepth: 10, // Expand schemas in the "Schemas" section
+    defaultModelExpandDepth: 10,  // Expand models in responses/requests
+  }
+}));
 
 
 dotenv.config();

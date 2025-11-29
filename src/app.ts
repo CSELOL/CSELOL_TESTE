@@ -1,6 +1,9 @@
 import express from "express";
-import tournamentRoutes from "./routes/tournaments.routes";
 import cors from 'cors';
+import tournamentRoutes from "./routes/tournaments.routes";
+import teamRoutes from "./routes/teams.routes";
+import matchRoutes from "./routes/matches.routes";
+import standingsRoutes from "./routes/standings.routes";
 
 const app = express();
 
@@ -13,6 +16,9 @@ app.use(cors({
 app.use(express.json());
 
 // routes
-app.use("/tournaments", tournamentRoutes);
+app.use("/api/tournaments", tournamentRoutes);
+app.use("/api/teams", teamRoutes);
+app.use("/api/matches", matchRoutes);
+app.use("/api/standings", standingsRoutes);
 
 export default app;
