@@ -1,13 +1,12 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getRegistration = exports.updateRegistrationStatus = exports.registerTeam = void 0;
 exports.createTournament = createTournament;
 exports.getTournaments = getTournaments;
+exports.getTournamentById = getTournamentById;
 exports.updateTournament = updateTournament;
 exports.deleteTournament = deleteTournament;
-const db_1 = __importDefault(require("../db"));
+const database_1 = require("../config/database");
 async function createTournament(data) {
     const { tournament_name, tournament_description, banner_url, logo_url, format, has_lower_bracket, start_date, is_listed, allow_signups, is_archived, status } = data;
     const query = `
@@ -30,14 +29,20 @@ async function createTournament(data) {
         is_archived || false, // Default to false if not provided
         status
     ];
-    const result = await db_1.default.query(query, values);
+    const result = await database_1.db.query(query, values);
     return result.rows[0];
 }
 async function getTournaments() {
-    const result = await db_1.default.query(`
+    const result = await database_1.db.query(`
     SELECT * FROM tournaments ORDER BY created_at DESC
   `);
     return result.rows;
+}
+async function getTournamentById(id) {
+    const result = await database_1.db.query(`
+    SELECT * FROM tournaments WHERE id = $1
+  `, [id]);
+    return result.rows[0];
 }
 async function updateTournament(id, data) {
     const { tournament_name, tournament_description, banner_url, logo_url, format, has_lower_bracket, start_date, is_listed, allow_signups, is_archived, status } = data;
@@ -72,8 +77,8 @@ async function updateTournament(id, data) {
         is_archived,
         status,
         id
-    ];
-    const result = await db_1.default.query(query, values);
+    ].map(val => val === undefined ? null : val);
+    const result = await database_1.db.query(query, values);
     return result.rows[0];
 }
 async function deleteTournament(id) {
@@ -83,7 +88,55 @@ async function deleteTournament(id) {
     RETURNING *;
   `;
     const values = [id];
-    const result = await db_1.default.query(query, values);
+    const result = await database_1.db.query(query, values);
     return result.rows[0];
 }
+const registerTeam = async (tournamentId, teamId, paymentProofUrl) => {
+    const client = await database_1.db.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Check if tournament exists and is open
+        const tournamentRes = await client.query('SELECT * FROM tournaments WHERE id = $1', [tournamentId]);
+        if (tournamentRes.rows.length === 0) {
+            throw new Error('Tournament not found');
+        }
+        const tournament = tournamentRes.rows[0];
+        // Check status (assuming 'open' or 'draft' allows registration, adjust as needed)
+        // if (tournament.status !== 'open') { throw new Error('Tournament is not open for registration'); }
+        // 2. Check if team is already registered
+        const existingReg = await client.query('SELECT * FROM tournament_registrations WHERE tournament_id = $1 AND team_id = $2', [tournamentId, teamId]);
+        if (existingReg.rows.length > 0) {
+            throw new Error('Team is already registered for this tournament');
+        }
+        // 3. Register Team
+        // Default status 'pending'
+        const result = await client.query(`INSERT INTO tournament_registrations (tournament_id, team_id, payment_proof_url, status)
+       VALUES ($1, $2, $3, 'pending')
+       RETURNING *`, [tournamentId, teamId, paymentProofUrl]);
+        await client.query('COMMIT');
+        return result.rows[0];
+    }
+    catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    }
+    finally {
+        client.release();
+    }
+};
+exports.registerTeam = registerTeam;
+const updateRegistrationStatus = async (tournamentId, teamId, status) => {
+    const result = await database_1.db.query(`UPDATE tournament_registrations 
+     SET status = $1, updated_at = NOW() 
+     WHERE tournament_id = $2 AND team_id = $3 
+     RETURNING *`, [status, tournamentId, teamId]);
+    return result.rows[0];
+};
+exports.updateRegistrationStatus = updateRegistrationStatus;
+const getRegistration = async (tournamentId, teamId) => {
+    const result = await database_1.db.query(`SELECT * FROM tournament_registrations 
+     WHERE tournament_id = $1 AND team_id = $2`, [tournamentId, teamId]);
+    return result.rows[0];
+};
+exports.getRegistration = getRegistration;
 //# sourceMappingURL=tournaments.service.js.map

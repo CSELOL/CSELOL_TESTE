@@ -25,8 +25,24 @@ export const CreateTeamSchema = registry.register(
     'CreateTeam',
     z.object({
         name: z.string().min(2).openapi({ example: 'LOUD' }),
-        tag: z.string().optional().openapi({ example: 'LLL' }),
-        logoUrl: z.string().url().optional().openapi({ example: 'https://example.com/loud.png' }),
+        tag: z.string().min(2).max(5).openapi({ example: 'LLL' }),
+        logo_url: z.string().optional().nullable().openapi({ example: 'https://example.com/loud.png' }),
+        description: z.string().optional().nullable().openapi({ example: 'A professional esports organization.' }),
+        social_media: z.any().optional().nullable().openapi({
+            example: {
+                twitter: 'x.com/loudgg',
+                instagram: 'instagram.com/loudgg'
+            }
+        })
+    })
+);
+
+export const CreatePlayerSchema = registry.register(
+    'CreatePlayer',
+    z.object({
+        username: z.string().min(3).openapi({ example: 'Faker' }),
+        summoner_name: z.string().optional().openapi({ example: 'Hide on bush' }),
+        role: z.enum(['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT']).optional().openapi({ example: 'MID' }),
     })
 );
 
@@ -51,13 +67,6 @@ export const TournamentSchema = registry.register(
         tournament_description: z.string().nullable().openapi({ example: 'Campeonato Brasileiro de League of Legends' }),
         banner_url: z.string().nullable().openapi({ example: 'https://example.com/banner.png' }),
         logo_url: z.string().nullable().openapi({ example: 'https://example.com/logo.png' }),
-        format: z.enum(['single_elimination', 'double_elimination']).openapi({ example: 'single_elimination' }),
-        has_lower_bracket: z.boolean().openapi({ example: false }),
-        start_date: z.string().openapi({ example: '2024-01-20T00:00:00Z' }),
-        is_listed: z.boolean().openapi({ example: true }),
-        allow_signups: z.boolean().openapi({ example: true }),
-        is_archived: z.boolean().openapi({ example: false }),
-        status: z.enum(['draft', 'open', 'in_progress', 'completed']).openapi({ example: 'draft' }),
         created_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
         updated_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
     })
@@ -68,25 +77,32 @@ export const TeamSchema = registry.register(
     z.object({
         id: z.number().int().openapi({ example: 1 }),
         name: z.string().openapi({ example: 'LOUD' }),
-        tag: z.string().nullable().openapi({ example: 'LLL' }),
+        tag: z.string().openapi({ example: 'LLL' }),
         logo_url: z.string().nullable().openapi({ example: 'https://example.com/loud.png' }),
+        description: z.string().nullable().openapi({ example: 'A professional esports organization.' }),
+        social_media: z.any().nullable().openapi({
+            example: {
+                twitter: 'x.com/loudgg',
+                instagram: 'instagram.com/loudgg'
+            }
+        }),
+        created_by_user_id: z.string().nullable().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
+        invite_code: z.string().openapi({ example: 'SLY-1234' }),
         created_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
         updated_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
     })
 );
 
-export const MatchSchema = registry.register(
-    'Match',
+export const PlayerSchema = registry.register(
+    'Player',
     z.object({
         id: z.number().int().openapi({ example: 1 }),
-        tournament_id: z.number().int().openapi({ example: 1 }),
-        bracket_id: z.number().int().nullable().openapi({ example: 1 }),
-        stage_id: z.number().int().nullable().openapi({ example: 1 }),
-        team_a_id: z.number().int().openapi({ example: 1 }),
-        team_b_id: z.number().int().openapi({ example: 2 }),
-        scheduled_at: z.string().nullable().openapi({ example: '2024-01-20T13:00:00Z' }),
-        best_of: z.number().int().nullable().openapi({ example: 1 }),
-        status: z.string().openapi({ example: 'scheduled' }),
+        keycloak_id: z.string().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
+        username: z.string().openapi({ example: 'Faker' }),
+        summoner_name: z.string().nullable().openapi({ example: 'Hide on bush' }),
+        role: z.string().nullable().openapi({ example: 'MID' }),
+        team_id: z.number().int().nullable().openapi({ example: 1 }),
+        avatar_url: z.string().nullable().openapi({ example: 'https://example.com/avatar.png' }),
         created_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
         updated_at: z.string().openapi({ example: '2024-01-01T00:00:00Z' }),
     })

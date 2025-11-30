@@ -13,7 +13,7 @@ function generateOpenApiDocs() {
             title: 'CSELOL API',
             description: 'Documentação da API do sistema CSELOL',
         },
-        servers: [{ url: 'http://localhost:3333' }],
+        servers: [{ url: 'http://localhost:3333/api' }],
     });
 }
 //# sourceMappingURL=openapi.js.map

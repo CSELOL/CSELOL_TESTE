@@ -4,16 +4,45 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
-const tournaments_routes_1 = __importDefault(require("./routes/tournaments.routes"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path")); // Added path import
+const tournaments_routes_1 = __importDefault(require("./routes/tournaments.routes"));
+const teams_routes_1 = __importDefault(require("./routes/teams.routes"));
+const matches_routes_1 = __importDefault(require("./routes/matches.routes"));
+const standings_routes_1 = __importDefault(require("./routes/standings.routes"));
+const players_routes_1 = __importDefault(require("./routes/players.routes"));
+const files_routes_1 = __importDefault(require("./routes/files.routes")); // Added fileRoutes import
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const openapi_1 = require("./config/openapi");
 const app = (0, express_1.default)();
-// CORS PRIMEIRO
-app.use((0, cors_1.default)({
-    origin: 'http://localhost:5173',
-    credentials: true
-}));
 app.use(express_1.default.json());
-// routes
-app.use("/tournaments", tournaments_routes_1.default);
+app.use((0, cors_1.default)());
+// Serve Static Files
+app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
+// Generate Swagger Docs
+const swaggerDocs = (0, openapi_1.generateOpenApiDocs)();
+// Swagger UI
+app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs, {
+    swaggerOptions: {
+        defaultModelsExpandDepth: -1, // Hide schemas section by default
+        docExpansion: 'list' // Expand tags by default
+    }
+}));
+// API Routes
+app.use('/api/tournaments', tournaments_routes_1.default);
+app.use('/api/teams', teams_routes_1.default);
+app.use('/api/matches', matches_routes_1.default);
+app.use('/api/standings', standings_routes_1.default);
+app.use('/api/players', players_routes_1.default);
+app.use('/api/files', files_routes_1.default); // Added file routes
+// Global Error Handler
+app.use((err, req, res, next) => {
+    if (err.name === 'UnauthorizedError') {
+        console.error('Auth Error:', err.message); // Log the specific auth error
+        return res.status(401).json({ error: 'Invalid Token', details: err.message });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+});
 exports.default = app;
 //# sourceMappingURL=app.js.map
