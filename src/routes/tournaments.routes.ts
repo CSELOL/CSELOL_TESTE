@@ -20,6 +20,14 @@ import {
   getPaymentProofUrl
 } from '../controllers/registrations.controller';
 
+import {
+  assignGroupsController,
+  getGroupsController,
+  createMatchController,
+  bulkUpdateMatchesController,
+  createStageController
+} from '../controllers/tournaments-management.controller';
+
 import { jwtAuth, checkRole } from '../middlewares/auth.middleware';
 
 const router = Router();
@@ -36,16 +44,24 @@ router.delete('/:id', jwtAuth, checkRole(['admin']), deleteTournamentController)
 router.get('/:id/teams', jwtAuth, checkRole(['admin']), getTournamentTeamsController);
 router.get('/:id/public-teams', getPublicTournamentTeamsController);
 
-// --- MATCHES SUB-ROUTE (This fixes your original error context) ---
+// --- MATCHES SUB-ROUTE ---
 // Calls getMatches which checks req.params.id
 router.get('/:id/matches', getMatches);
 
 // Bracket Generation
 router.post('/:id/generate-bracket', jwtAuth, checkRole(['admin']), generateBracketController);
+router.post('/:id/generate-groups', jwtAuth, checkRole(['admin']), generateGroupsController);
 
 // Registration
 router.post('/:id/register', jwtAuth, registerForTournament);
 router.put('/registrations/:id/status', jwtAuth, checkRole(['admin']), updateRegistrationStatus);
 router.get('/registrations/:id/proof', jwtAuth, checkRole(['admin']), getPaymentProofUrl);
-router.post('/:id/generate-groups', jwtAuth, checkRole(['admin']), generateGroupsController);
+
+// --- Advanced Tournament Management ---
+router.post('/:id/assign-groups', jwtAuth, checkRole(['admin']), assignGroupsController);
+router.get('/:id/groups', getGroupsController);
+router.post('/:id/matches', jwtAuth, checkRole(['admin']), createMatchController);
+router.put('/:id/matches/bulk', jwtAuth, checkRole(['admin']), bulkUpdateMatchesController);
+router.post('/:id/stages', jwtAuth, checkRole(['admin']), createStageController);
+
 export default router;

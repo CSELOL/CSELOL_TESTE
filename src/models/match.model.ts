@@ -3,7 +3,7 @@ export interface Match {
     tournamentId: number;
 
     // Phase Configuration
-    stage: 'groups' | 'playoffs';
+    stage: string;
     groupName?: string | null; // 'A', 'B' (Only for groups)
     round?: number;       // Matchday (Groups) or Round (Playoffs)
     matchIndex?: number;  // Position in the bracket/list
