@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPaymentProofUrl = exports.updateRegistrationStatus = exports.registerForTournament = exports.getTournamentTeams = exports.getTournamentById = void 0;
-const database_1 = require("../config/database"); // Assuming this is your pg pool
-const supabase_1 = require("../config/supabase"); // Assuming you set this up
-// --- 1. GET SINGLE TOURNAMENT (Fixes your UI "Not Found" error) ---
+const database_1 = require("../config/database");
+const supabase_1 = require("../config/supabase");
+// --- 1. GET SINGLE TOURNAMENT ---
 const getTournamentById = async (req, res) => {
     const { id } = req.params;
     try {
@@ -20,11 +20,10 @@ const getTournamentById = async (req, res) => {
     }
 };
 exports.getTournamentById = getTournamentById;
-// --- 2. GET REGISTERED TEAMS (For Admin Table) ---
+// --- 2. GET REGISTERED TEAMS ---
 const getTournamentTeams = async (req, res) => {
     const { id } = req.params;
     try {
-        // Join Teams and Registrations to get data + status
         const query = `
             SELECT 
                 t.id as team_id, 
@@ -47,30 +46,26 @@ const getTournamentTeams = async (req, res) => {
     }
 };
 exports.getTournamentTeams = getTournamentTeams;
-// --- 3. REGISTER TEAM (Fixed to accept string URL) ---
+// --- 3. REGISTER TEAM ---
 const registerForTournament = async (req, res) => {
-    const { id } = req.params; // Tournament ID
+    const { id } = req.params;
     const auth = req.auth;
     const userId = auth?.sub;
-    // 1. Get the payment proof PATH from frontend (not the file itself)
     const { payment_proof_url } = req.body;
     if (!userId)
         return res.status(401).json({ error: "Unauthorized" });
     if (!payment_proof_url)
         return res.status(400).json({ error: "Payment proof required" });
     try {
-        // 2. Get User's Team
         const teamRes = await database_1.db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
         if (teamRes.rows.length === 0) {
             return res.status(400).json({ error: "You must be a Team Captain." });
         }
         const team = teamRes.rows[0];
-        // 3. Check if already registered
         const existing = await database_1.db.query("SELECT * FROM tournament_registrations WHERE tournament_id = $1 AND team_id = $2", [id, team.id]);
         if (existing.rows.length > 0) {
             return res.status(409).json({ error: "Team already registered." });
         }
-        // 4. Insert Registration
         const insertQuery = `
             INSERT INTO tournament_registrations 
             (tournament_id, team_id, payment_proof_url, status) 
@@ -86,13 +81,16 @@ const registerForTournament = async (req, res) => {
     }
 };
 exports.registerForTournament = registerForTournament;
-// --- 4. UPDATE STATUS (Approve/Reject) ---
+// --- 4. UPDATE STATUS ---
 const updateRegistrationStatus = async (req, res) => {
-    const { regId } = req.params; // Registration ID
-    const { status } = req.body; // 'APPROVED' or 'REJECTED'
+    const { id } = req.params; // Fixed from regId
+    const { status } = req.body;
     try {
         const query = `UPDATE tournament_registrations SET status = $1 WHERE id = $2 RETURNING *`;
-        const result = await database_1.db.query(query, [status, regId]);
+        const result = await database_1.db.query(query, [status, id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Registration not found" });
+        }
         res.json(result.rows[0]);
     }
     catch (err) {
@@ -101,23 +99,33 @@ const updateRegistrationStatus = async (req, res) => {
     }
 };
 exports.updateRegistrationStatus = updateRegistrationStatus;
-// --- 5. GET PROOF URL (Signed URL) ---
+// --- 5. GET PROOF URL ---
 const getPaymentProofUrl = async (req, res) => {
-    const { regId } = req.params;
+    const { id } = req.params; // Fixed from regId
     try {
-        // Get the path from DB
         const query = `SELECT payment_proof_url FROM tournament_registrations WHERE id = $1`;
-        const result = await database_1.db.query(query, [regId]);
+        const result = await database_1.db.query(query, [id]);
         if (result.rows.length === 0)
-            return res.status(404).json({ error: "Not found" });
+            return res.status(404).json({ error: "Registration not found" });
         const path = result.rows[0].payment_proof_url;
-        // Generate Signed URL (Valid 60 seconds)
+        // If it's already a full URL, return it
+        if (path.startsWith('http')) {
+            return res.json({ url: path });
+        }
+        // DEBUG: Log what we are trying to fetch
+        console.log(`Attempting to sign URL for path: [${path}] in bucket 'payment-proofs'`);
         const { data, error } = await supabase_1.supabase
             .storage
-            .from('payment-proofs') // Ensure this matches your Supabase bucket name
+            .from('private-assets')
             .createSignedUrl(path, 60);
-        if (error)
+        if (error) {
+            console.error("Supabase Storage Error:", error);
+            // Handle "Object not found" specifically
+            if (error.statusCode === '404' || error.message?.includes('not found')) {
+                return res.status(404).json({ error: "Proof file not found in storage bucket." });
+            }
             throw error;
+        }
         res.json({ url: data.signedUrl });
     }
     catch (err) {

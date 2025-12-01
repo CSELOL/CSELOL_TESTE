@@ -5,7 +5,10 @@ exports.createTournamentController = createTournamentController;
 exports.getAllTournamentsController = getAllTournamentsController;
 exports.updateTournamentController = updateTournamentController;
 exports.deleteTournamentController = deleteTournamentController;
+exports.generateBracketController = generateBracketController;
+exports.generateGroupsController = generateGroupsController;
 const tournaments_service_1 = require("../services/tournaments.service");
+const database_1 = require("../config/database");
 async function createTournamentController(req, res) {
     try {
         const tournament = await (0, tournaments_service_1.createTournament)(req.body);
@@ -54,22 +57,32 @@ async function deleteTournamentController(req, res) {
         return res.status(500).json({ error: err.message || 'Error deleting tournament' });
     }
 }
-const database_1 = require("../config/database");
+// --- FIXED: Removed u.real_name from query ---
 const getTournamentTeamsController = async (req, res) => {
-    const { id } = req.params; // Tournament ID
+    const { id } = req.params;
     try {
-        // Join 'teams' with 'tournament_registrations'
-        // We need team info (name, tag) AND registration info (status, proof, date)
         const query = `
       SELECT 
         t.id, 
         t.name, 
         t.tag, 
         t.logo_url,
+        t.description,
+        t.social_media,
         tr.id as registration_id,
         tr.status as registration_status,
         tr.payment_proof_url,
-        tr.created_at as registered_at
+        tr.created_at as registered_at,
+        (
+            SELECT json_agg(json_build_object(
+                'id', u.id,
+                'nickname', u.nickname,
+                'avatar_url', u.avatar_url,
+                'role', u.team_role
+            ))
+            FROM users u
+            WHERE u.team_id = t.id
+        ) as roster
       FROM teams t
       JOIN tournament_registrations tr ON t.id = tr.team_id
       WHERE tr.tournament_id = $1
@@ -85,20 +98,15 @@ const getTournamentTeamsController = async (req, res) => {
 };
 exports.getTournamentTeamsController = getTournamentTeamsController;
 const getPublicTournamentTeamsController = async (req, res) => {
-    const { id } = req.params; // Tournament ID
+    const { id } = req.params;
     try {
-        // Only fetch APPROVED teams and safe fields
         const query = `
-      SELECT 
-        t.id, 
-        t.name, 
-        t.tag, 
-        t.logo_url
-      FROM teams t
-      JOIN tournament_registrations tr ON t.id = tr.team_id
-      WHERE tr.tournament_id = $1 AND tr.status = 'approved'
-      ORDER BY t.name ASC
-    `;
+        SELECT t.id, t.name, t.tag, t.logo_url
+        FROM teams t
+        JOIN tournament_registrations tr ON t.id = tr.team_id
+        WHERE tr.tournament_id = $1 AND (tr.status = 'approved' OR tr.status = 'APPROVED')
+        ORDER BY t.name ASC
+      `;
         const result = await database_1.db.query(query, [id]);
         res.json(result.rows);
     }
@@ -108,4 +116,28 @@ const getPublicTournamentTeamsController = async (req, res) => {
     }
 };
 exports.getPublicTournamentTeamsController = getPublicTournamentTeamsController;
+async function generateBracketController(req, res) {
+    try {
+        const id = parseInt(req.params.id);
+        await (0, tournaments_service_1.generateBracket)(id);
+        return res.status(200).json({ message: "Bracket generated successfully" });
+    }
+    catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message || 'Error generating bracket' });
+    }
+}
+async function generateGroupsController(req, res) {
+    try {
+        const id = parseInt(req.params.id);
+        // Read config from body (e.g., { groups: 2, bo: 1 })
+        const { groups, bestOf } = req.body;
+        await (0, tournaments_service_1.generateGroupStage)(id, groups || 1, bestOf || 1);
+        return res.status(200).json({ message: "Group stage generated successfully" });
+    }
+    catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
+    }
+}
 //# sourceMappingURL=tournaments.controller.js.map

@@ -1,4 +1,5 @@
 import { db as pool } from '../config/database';
+import { v4 as uuidv4 } from 'uuid'; // Ensure uuid is installed: npm install uuid @types/uuid
 
 export const createTeam = async (
   name: string,
@@ -12,27 +13,34 @@ export const createTeam = async (
   try {
     await client.query('BEGIN');
 
-    // 1. Create Team
+    // Generate a short 8-character invite code
+    const inviteCode = uuidv4().substring(0, 8).toUpperCase();
+
+    // 1. Create Team (Now includes invite_code)
     const teamResult = await client.query(
-      `INSERT INTO teams (name, tag, logo_url, description, social_media, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO teams (name, tag, logo_url, description, social_media, created_by_user_id, invite_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, tag, logoUrl, description, socialMedia, userId]
+      [name, tag, logoUrl, description, socialMedia, userId, inviteCode]
     );
     const team = teamResult.rows[0];
 
-    // 2. Update User's team_id in users table
+    // 2. Update User's team_id in users table (Captain automatically joins)
+    // Also set them as CAPTAIN if your users table tracks role per team context
+    // Assuming 'team_role' column exists in users. If not, remove that part.
     await client.query(
-      `UPDATE users SET team_id = $1 WHERE keycloak_id = $2`,
+      `UPDATE users 
+       SET team_id = $1, team_role = 'CAPTAIN' 
+       WHERE keycloak_id = $2`,
       [team.id, userId]
     );
 
     await client.query('COMMIT');
-    console.error('DEBUG: Team created successfully:', team);
+    console.log('Team created successfully:', team);
     return team;
   } catch (e) {
     await client.query('ROLLBACK');
-    console.error('DEBUG: Error creating team in DB:', e);
+    console.error('Error creating team in DB:', e);
     throw e;
   } finally {
     client.release();
@@ -40,8 +48,12 @@ export const createTeam = async (
 };
 
 export const joinTeam = async (userId: number, teamId: number) => {
+  // Reset role to MEMBER when joining a new team (safeguard)
   const result = await pool.query(
-    `UPDATE users SET team_id = $1 WHERE id = $2 RETURNING *`,
+    `UPDATE users 
+     SET team_id = $1, team_role = 'MEMBER' 
+     WHERE id = $2 
+     RETURNING *`,
     [teamId, userId]
   );
   return result.rows[0];
