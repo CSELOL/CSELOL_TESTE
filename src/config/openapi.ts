@@ -1,6 +1,7 @@
 import { OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { registry } from './registry';
 import '../utils/zod-schemas'; // Import to register schemas
+import './openapi-routes'; // Import to register paths
 
 export function generateOpenApiDocs() {
     const generator = new OpenApiGeneratorV3(registry.definitions);

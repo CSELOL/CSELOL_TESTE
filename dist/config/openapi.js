@@ -4,6 +4,7 @@ exports.generateOpenApiDocs = generateOpenApiDocs;
 const zod_to_openapi_1 = require("@asteasolutions/zod-to-openapi");
 const registry_1 = require("./registry");
 require("../utils/zod-schemas"); // Import to register schemas
+require("./openapi-routes"); // Import to register paths
 function generateOpenApiDocs() {
     const generator = new zod_to_openapi_1.OpenApiGeneratorV3(registry_1.registry.definitions);
     return generator.generateDocument({

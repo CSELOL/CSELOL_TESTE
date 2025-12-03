@@ -71,6 +71,32 @@ const teams_controller_2 = require("../controllers/teams.controller");
 router.get('/my-team', auth_middleware_1.jwtAuth, teams_controller_2.getMyTeamController);
 /**
  * @swagger
+ * /teams/my-team/matches:
+ *   get:
+ *     summary: Get my team's matches
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of matches
+ */
+router.get('/my-team/matches', auth_middleware_1.jwtAuth, teams_controller_2.getMyTeamMatchesController);
+/**
+ * @swagger
+ * /teams/my-team/tournaments:
+ *   get:
+ *     summary: Get my team's tournaments
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of tournaments
+ */
+router.get('/my-team/tournaments', auth_middleware_1.jwtAuth, teams_controller_2.getMyTeamTournamentsController);
+/**
+ * @swagger
  * /teams/join:
  *   post:
  *     summary: Join a team using an invite code
@@ -164,4 +190,35 @@ router.post('/:id/refresh-code', auth_middleware_1.jwtAuth, teams_controller_2.r
  */
 router.post('/:id/join', auth_middleware_1.jwtAuth, teams_controller_1.joinTeamController);
 exports.default = router;
+/**
+ * @swagger
+ * /teams/{id}/transfer-ownership:
+ *   post:
+ *     summary: Transfer team ownership (Captain only)
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               newCaptainId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Ownership transferred successfully
+ *       403:
+ *         description: Only captain can transfer ownership
+ */
+const teams_controller_3 = require("../controllers/teams.controller");
+router.post('/:id/transfer-ownership', auth_middleware_1.jwtAuth, teams_controller_3.transferOwnershipController);
 //# sourceMappingURL=teams.routes.js.map

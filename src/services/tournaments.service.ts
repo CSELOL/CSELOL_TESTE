@@ -140,27 +140,6 @@ export const registerTeam = async (tournamentId: number, teamId: number, payment
   }
 };
 
-export const updateRegistrationStatus = async (tournamentId: number, teamId: number, status: string) => {
-  // status should be 'APPROVED' or 'REJECTED' or 'PENDING'
-  const result = await pool.query(
-    `UPDATE tournament_registrations SET status = $1, updated_at = NOW() WHERE tournament_id = $2 AND team_id = $3 RETURNING *`,
-    [status, tournamentId, teamId]
-  );
-  return result.rows[0];
-};
-
-export const getRegistration = async (tournamentId: number, teamId: number) => {
-  const result = await pool.query(
-    `SELECT * FROM tournament_registrations WHERE tournament_id = $1 AND team_id = $2`,
-    [tournamentId, teamId]
-  );
-  return result.rows[0];
-};
-
-/// ==========================================
-// NEW: ADVANCED TOURNAMENT LOGIC
-// ==========================================
-
 /**
  * Generates a Group Stage (Round Robin)
  * - Splits teams into N groups (e.g., 2 groups)

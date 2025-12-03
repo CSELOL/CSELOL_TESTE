@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refreshInviteCodeController = exports.getTeamMembersController = exports.joinTeamByCodeController = exports.getMyTeamController = exports.joinTeamController = exports.createTeamController = void 0;
+exports.getMyTeamTournamentsController = exports.getMyTeamMatchesController = exports.transferOwnershipController = exports.refreshInviteCodeController = exports.getTeamMembersController = exports.joinTeamByCodeController = exports.getMyTeamController = exports.joinTeamController = exports.createTeamController = void 0;
 const teams_service_1 = require("../services/teams.service");
+// ... (rest of imports)
+// ... (inside getMyTeamMatchesController)
 const users_service_1 = require("../services/users.service");
 const zod_schemas_1 = require("../utils/zod-schemas");
 const createTeamController = async (req, res) => {
@@ -185,7 +187,7 @@ const refreshInviteCodeController = async (req, res) => {
         if (!team) {
             return res.status(404).json({ error: 'Team not found.' });
         }
-        if (team.created_by_user_id !== keycloakId) {
+        if (team.captain_id !== keycloakId) {
             return res.status(403).json({ error: 'Only the team captain can refresh the invite code.' });
         }
         // 2. Generate New Code
@@ -202,4 +204,72 @@ const refreshInviteCodeController = async (req, res) => {
     }
 };
 exports.refreshInviteCodeController = refreshInviteCodeController;
+const transferOwnershipController = async (req, res) => {
+    try {
+        const auth = req.auth;
+        const currentCaptainId = auth.sub;
+        const teamId = parseInt(req.params.id);
+        const { newCaptainId } = req.body;
+        if (!newCaptainId) {
+            return res.status(400).json({ error: 'New captain ID is required.' });
+        }
+        // 1. Get Team & Verify Current Captain
+        const team = await (0, teams_service_1.getTeamById)(teamId);
+        if (!team) {
+            return res.status(404).json({ error: 'Team not found.' });
+        }
+        if (team.captain_id !== currentCaptainId) {
+            return res.status(403).json({ error: 'Only the team captain can transfer ownership.' });
+        }
+        // 2. Verify New Captain is in the team
+        const { getTeamMembers, transferTeamOwnership } = require('../services/teams.service');
+        const members = await getTeamMembers(teamId);
+        const newCaptain = members.find((m) => m.keycloak_id === newCaptainId);
+        if (!newCaptain) {
+            return res.status(400).json({ error: 'The new captain must be a member of the team.' });
+        }
+        // 3. Transfer Ownership
+        await transferTeamOwnership(teamId, currentCaptainId, newCaptainId);
+        res.status(200).json({ message: 'Ownership transferred successfully.' });
+    }
+    catch (error) {
+        console.error('Error transferring ownership:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+exports.transferOwnershipController = transferOwnershipController;
+const getMyTeamMatchesController = async (req, res) => {
+    try {
+        const auth = req.auth;
+        const keycloakId = auth.sub;
+        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        if (!user || !user.team_id) {
+            return res.status(404).json({ error: 'User not found or not in a team.' });
+        }
+        const matches = await (0, teams_service_1.getTeamMatches)(user.team_id);
+        res.status(200).json(matches);
+    }
+    catch (error) {
+        console.error('Error getting team matches:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+exports.getMyTeamMatchesController = getMyTeamMatchesController;
+const getMyTeamTournamentsController = async (req, res) => {
+    try {
+        const auth = req.auth;
+        const keycloakId = auth.sub;
+        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        if (!user || !user.team_id) {
+            return res.status(404).json({ error: 'User not found or not in a team.' });
+        }
+        const tournaments = await (0, teams_service_1.getTeamTournaments)(user.team_id);
+        res.status(200).json(tournaments);
+    }
+    catch (error) {
+        console.error('Error getting team tournaments:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+exports.getMyTeamTournamentsController = getMyTeamTournamentsController;
 //# sourceMappingURL=teams.controller.js.map

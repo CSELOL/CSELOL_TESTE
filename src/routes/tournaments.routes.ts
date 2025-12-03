@@ -17,7 +17,8 @@ import {
   getTournamentById,
   registerForTournament,
   updateRegistrationStatus,
-  getPaymentProofUrl
+  getPaymentProofUrl,
+  withdrawRegistration
 } from '../controllers/registrations.controller';
 
 import {
@@ -54,6 +55,7 @@ router.post('/:id/generate-groups', jwtAuth, checkRole(['admin']), generateGroup
 
 // Registration
 router.post('/:id/register', jwtAuth, registerForTournament);
+router.delete('/:id/register', jwtAuth, withdrawRegistration);
 router.put('/registrations/:id/status', jwtAuth, checkRole(['admin']), updateRegistrationStatus);
 router.get('/registrations/:id/proof', jwtAuth, checkRole(['admin']), getPaymentProofUrl);
 
