@@ -26,7 +26,8 @@ import {
   getGroupsController,
   createMatchController,
   bulkUpdateMatchesController,
-  createStageController
+  createStageController,
+  generateGroupMatchesController
 } from '../controllers/tournaments-management.controller';
 
 import { jwtAuth, checkRole } from '../middlewares/auth.middleware';
@@ -63,6 +64,7 @@ router.get('/registrations/:id/proof', jwtAuth, checkRole(['admin']), getPayment
 router.post('/:id/assign-groups', jwtAuth, checkRole(['admin']), assignGroupsController);
 router.get('/:id/groups', getGroupsController);
 router.post('/:id/matches', jwtAuth, checkRole(['admin']), createMatchController);
+router.post('/:id/generate-group-matches', jwtAuth, checkRole(['admin']), generateGroupMatchesController);
 router.put('/:id/matches/bulk', jwtAuth, checkRole(['admin']), bulkUpdateMatchesController);
 router.post('/:id/stages', jwtAuth, checkRole(['admin']), createStageController);
 

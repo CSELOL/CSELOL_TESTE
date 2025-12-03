@@ -232,3 +232,81 @@ export async function createCustomStage(tournamentId: number, stageData: any) {
 
     return rows[0];
 }
+
+/**
+ * Generates Group Stage Matches (Round Robin) based on existing assignments
+ */
+export async function generateGroupStageMatches(tournamentId: number, bestOf: number = 1) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Cleanup: Wipe existing matches for 'groups' stage
+        await client.query("DELETE FROM matches WHERE tournament_id = $1 AND stage = 'groups'", [tournamentId]);
+
+        // 2. Fetch Teams grouped by Group Name
+        const { rows: standings } = await client.query(
+            `SELECT team_id, group_name FROM tournament_standings 
+             WHERE tournament_id = $1 AND group_name IS NOT NULL
+             ORDER BY group_name, team_id`,
+            [tournamentId]
+        );
+
+        if (standings.length === 0) throw new Error("No teams assigned to groups.");
+
+        // Group teams
+        const groups: Record<string, number[]> = {};
+        standings.forEach(s => {
+            if (!groups[s.group_name]) groups[s.group_name] = [];
+            groups[s.group_name].push(s.team_id);
+        });
+
+        let totalMatches = 0;
+
+        // 3. Generate Matches
+        for (const [groupName, teamIds] of Object.entries(groups)) {
+            const n = teamIds.length;
+            if (n < 2) continue;
+
+            // Circle Method
+            const teams = [...teamIds];
+            if (n % 2 !== 0) teams.push(-1); // Bye
+
+            const numTeams = teams.length;
+            const numRounds = numTeams - 1;
+            const matchesPerRound = numTeams / 2;
+
+            for (let round = 0; round < numRounds; round++) {
+                for (let match = 0; match < matchesPerRound; match++) {
+                    const home = teams[match];
+                    const away = teams[numTeams - 1 - match];
+
+                    if (home === -1 || away === -1) continue;
+
+                    await client.query(
+                        `INSERT INTO matches 
+                         (tournament_id, stage, group_name, round, team_a_id, team_b_id, best_of, status)
+                         VALUES ($1, 'groups', $2, $3, $4, $5, $6, 'scheduled')`,
+                        [tournamentId, groupName, round + 1, home, away, bestOf]
+                    );
+                    totalMatches++;
+                }
+
+                // Rotate
+                const fixed = teams[0];
+                const rotating = teams.slice(1);
+                const last = rotating.pop();
+                if (last) rotating.unshift(last);
+                teams.splice(0, teams.length, fixed, ...rotating);
+            }
+        }
+
+        await client.query('COMMIT');
+        return { success: true, message: `Generated ${totalMatches} matches across ${Object.keys(groups).length} groups.` };
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+}

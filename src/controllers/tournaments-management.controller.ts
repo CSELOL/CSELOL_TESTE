@@ -71,3 +71,16 @@ export const createStageController = async (req: Request, res: Response) => {
         res.status(500).json({ error: error.message || 'Internal Server Error' });
     }
 };
+
+export const generateGroupMatchesController = async (req: Request, res: Response) => {
+    try {
+        const tournamentId = parseInt(req.params.id);
+        const { bestOf } = req.body;
+
+        const result = await tournamentManagementService.generateGroupStageMatches(tournamentId, bestOf || 1);
+        res.json(result);
+    } catch (error: any) {
+        console.error('Error generating group matches:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+};
