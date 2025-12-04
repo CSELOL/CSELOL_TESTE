@@ -49,6 +49,8 @@ router.get('/:id/public-teams', getPublicTournamentTeamsController);
 // --- MATCHES SUB-ROUTE ---
 // Calls getMatches which checks req.params.id
 router.get('/:id/matches', getMatches);
+// FIX: Add this alias for the public frontend call
+router.get('/:id/public-matches', getMatches);
 
 // Bracket Generation
 router.post('/:id/generate-bracket', jwtAuth, checkRole(['admin']), generateBracketController);

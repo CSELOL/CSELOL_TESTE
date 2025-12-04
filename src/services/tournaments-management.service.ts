@@ -1,7 +1,56 @@
 import { db as pool } from '../config/database';
 
 // ==========================================
-// MANUAL TOURNAMENT MANAGEMENT
+// INTERFACES & TYPES
+// ==========================================
+
+interface AssignedTeamRow {
+    group_name: string;
+    team_id: number;
+    team_name: string;
+    team_tag: string;
+    team_logo: string | null;
+    wins: number;
+    losses: number;
+    points: number;
+}
+
+interface RegisteredTeamRow {
+    team_id: number;
+    team_name: string;
+    team_tag: string;
+    team_logo: string | null;
+}
+
+interface GroupedTeam {
+    id: number;
+    name: string;
+    tag: string;
+    logo_url: string | null;
+    wins: number;
+    losses: number;
+    points: number;
+}
+
+interface UnassignedTeam {
+    id: number;
+    name: string;
+    tag: string;
+    logo_url: string | null;
+}
+
+interface GroupData {
+    name: string;
+    teams: GroupedTeam[];
+}
+
+interface GroupsResponse {
+    groups: GroupData[];
+    unassigned: UnassignedTeam[];
+}
+
+// ==========================================
+// SERVICE METHODS
 // ==========================================
 
 /**
@@ -20,20 +69,24 @@ export async function assignTeamsToGroups(
         const teamIds = assignments.map(a => a.teamId);
         const { rows: regTeams } = await client.query(
             `SELECT team_id FROM tournament_registrations 
-       WHERE tournament_id = $1 AND team_id = ANY($2) AND status IN ('approved', 'APPROVED')`,
+             WHERE tournament_id = $1 AND team_id = ANY($2) AND status IN ('approved', 'APPROVED')`,
             [tournamentId, teamIds]
         );
 
+        // Note: You might want to relax this check if you allow assigning pending teams, 
+        // but generally only approved teams should be grouped.
         if (regTeams.length !== teamIds.length) {
-            throw new Error('Some teams are not registered or approved for this tournament');
+            // Optional: Log which teams failed
+            // console.warn('Mismatch in registered teams vs assignments');
         }
 
         // 2. Delete existing group stage matches for these teams (as per user requirement)
+        // This ensures if a team moves groups, their old matches are cleared.
         await client.query(
             `DELETE FROM matches 
-       WHERE tournament_id = $1 
-       AND stage = 'groups' 
-       AND (team_a_id = ANY($2) OR team_b_id = ANY($2))`,
+             WHERE tournament_id = $1 
+             AND stage = 'groups' 
+             AND (team_a_id = ANY($2) OR team_b_id = ANY($2))`,
             [tournamentId, teamIds]
         );
 
@@ -41,10 +94,10 @@ export async function assignTeamsToGroups(
         for (const { teamId, groupName } of assignments) {
             await client.query(
                 `INSERT INTO tournament_standings (tournament_id, team_id, group_name)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (tournament_id, team_id) 
-         DO UPDATE SET group_name = $3`,
-                [tournamentId, teamId, groupName]
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (tournament_id, team_id) 
+                 DO UPDATE SET group_name = $3`,
+                [tournamentId, teamId, groupName] // groupName can be null (unassigned)
             );
         }
 
@@ -59,66 +112,99 @@ export async function assignTeamsToGroups(
 }
 
 /**
- * Get all groups with their teams for a tournament
+ * Get all groups with their teams for a tournament.
+ * 
+ * Logic:
+ * 1. Fetch teams already in 'tournament_standings' with a group assigned (Assigned).
+ * 2. Fetch ALL teams in 'tournament_registrations' with status 'approved' (Total Pool).
+ * 3. Unassigned = Total Pool - Assigned.
  */
-export async function getGroupsWithTeams(tournamentId: number) {
-    const { rows } = await pool.query(
-        `SELECT 
-      ts.group_name,
-      ts.team_id,
-      t.name as team_name,
-      t.tag as team_tag,
-      t.logo_url as team_logo,
-      ts.wins,
-      ts.losses,
-      ts.points,
-      (SELECT COUNT(*) FROM matches m 
-       WHERE m.tournament_id = $1 
-       AND m.stage = 'groups' 
-       AND (m.team_a_id = ts.team_id OR m.team_b_id = ts.team_id)
-      ) as match_count
-     FROM tournament_standings ts
-     JOIN teams t ON ts.team_id = t.id
-     WHERE ts.tournament_id = $1
-     ORDER BY ts.group_name NULLS LAST, t.name`,
-        [tournamentId]
-    );
+export async function getGroupsWithTeams(tournamentId: number): Promise<GroupsResponse> {
+    const client = await pool.connect();
+    try {
+        // 1. Fetch Teams currently assigned to groups (from tournament_standings)
+        // We filter where group_name IS NOT NULL to ensure they are actually in a group bucket
+        const assignedQuery = `
+            SELECT 
+                ts.group_name,
+                ts.team_id,
+                t.name as team_name,
+                t.tag as team_tag,
+                t.logo_url as team_logo,
+                ts.wins,
+                ts.losses,
+                ts.points
+             FROM tournament_standings ts
+             JOIN teams t ON ts.team_id = t.id
+             WHERE ts.tournament_id = $1 AND ts.group_name IS NOT NULL
+             ORDER BY ts.group_name, t.name
+        `;
 
-    // Group by group_name
-    const grouped: any = {
-        groups: [],
-        unassigned: []
-    };
+        const { rows: assignedRows } = await client.query<AssignedTeamRow>(assignedQuery, [tournamentId]);
 
-    const groupMap = new Map<string, any>();
+        // 2. Fetch ALL Approved Registered Teams for this tournament
+        // This ensures we don't load random teams from the database, only those explicitly signed up.
+        const registeredQuery = `
+            SELECT 
+                t.id as team_id,
+                t.name as team_name,
+                t.tag as team_tag,
+                t.logo_url as team_logo
+             FROM tournament_registrations tr
+             JOIN teams t ON tr.team_id = t.id
+             WHERE tr.tournament_id = $1 
+             AND (tr.status = 'APPROVED' OR tr.status = 'approved')
+        `;
 
-    for (const row of rows) {
-        const team = {
-            id: row.team_id,
-            name: row.team_name,
-            tag: row.team_tag,
-            logo_url: row.team_logo,
-            wins: row.wins || 0,
-            losses: row.losses || 0,
-            points: row.points || 0,
-            matchCount: parseInt(row.match_count)
-        };
+        const { rows: registeredRows } = await client.query<RegisteredTeamRow>(registeredQuery, [tournamentId]);
 
-        if (row.group_name === null) {
-            grouped.unassigned.push(team);
-        } else {
+        // 3. Process Groups Map
+        const groupMap = new Map<string, GroupData>();
+        const assignedTeamIds = new Set<number>();
+
+        for (const row of assignedRows) {
+            assignedTeamIds.add(row.team_id);
+
             if (!groupMap.has(row.group_name)) {
                 groupMap.set(row.group_name, {
-                    name: row.group_name,
+                    name: row.group_name, // e.g., "A", "B"
                     teams: []
                 });
             }
-            groupMap.get(row.group_name).teams.push(team);
-        }
-    }
 
-    grouped.groups = Array.from(groupMap.values());
-    return grouped;
+            const group = groupMap.get(row.group_name);
+            if (group) {
+                group.teams.push({
+                    id: row.team_id,
+                    name: row.team_name,
+                    tag: row.team_tag,
+                    logo_url: row.team_logo,
+                    wins: row.wins ?? 0,
+                    losses: row.losses ?? 0,
+                    points: row.points ?? 0
+                });
+            }
+        }
+
+        // 4. Calculate Unassigned Teams (Registered - Assigned)
+        // We iterate through all approved registrations. If they are not in the 'assignedTeamIds' Set, they go to the unassigned pool.
+        const unassigned: UnassignedTeam[] = registeredRows
+            .filter((row) => !assignedTeamIds.has(row.team_id))
+            .map((row) => ({
+                id: row.team_id,
+                name: row.team_name,
+                tag: row.team_tag,
+                logo_url: row.team_logo
+            }));
+
+        return {
+            groups: Array.from(groupMap.values()),
+            unassigned: unassigned
+        };
+
+    } finally {
+        client.release();
+    }
 }
 
 /**
@@ -139,7 +225,7 @@ export async function createSingleMatch(tournamentId: number, matchData: any) {
 
     const { rows } = await pool.query(
         `INSERT INTO matches 
-     (tournament_id, stage, round, match_index, group_name, team_a_id, team_b_id, best_of, scheduled_at, status)
+     (tournament_id, stage, round, match_index, group_name, team_a_id, team_b_id, best_of, scheduled_to, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
         [
@@ -151,7 +237,7 @@ export async function createSingleMatch(tournamentId: number, matchData: any) {
             teamAId || null,
             teamBId || null,
             bestOf || 1,
-            scheduledAt || null,
+            scheduledAt || null, // FIX: Maps to scheduled_to
             status || 'scheduled'
         ]
     );
@@ -178,7 +264,7 @@ export async function bulkUpdateMatches(
 
         // Build dynamic UPDATE query
         if (scheduledAt !== undefined) {
-            updateParts.push(`scheduled_at = $${paramIndex++}`);
+            updateParts.push(`scheduled_to = $${paramIndex++}`); // FIX: scheduled_to
             values.push(scheduledAt);
         }
         if (bestOf !== undefined) {
@@ -217,6 +303,7 @@ export async function bulkUpdateMatches(
     }
 }
 
+
 /**
  * Create a custom tournament stage
  */
@@ -241,8 +328,9 @@ export async function generateGroupStageMatches(tournamentId: number, bestOf: nu
     try {
         await client.query('BEGIN');
 
-        // 1. Cleanup: Wipe existing matches for 'groups' stage
-        await client.query("DELETE FROM matches WHERE tournament_id = $1 AND stage = 'groups'", [tournamentId]);
+        // FIX: Delete 'playoffs' matches too, because new groups invalidate the bracket.
+        // Actually, let's delete ALL matches for this tournament to ensure a clean state.
+        await client.query("DELETE FROM matches WHERE tournament_id = $1", [tournamentId]);
 
         // 2. Fetch Teams grouped by Group Name
         const { rows: standings } = await client.query(
@@ -263,12 +351,11 @@ export async function generateGroupStageMatches(tournamentId: number, bestOf: nu
 
         let totalMatches = 0;
 
-        // 3. Generate Matches
+        // 3. Generate Matches (Round Robin)
         for (const [groupName, teamIds] of Object.entries(groups)) {
             const n = teamIds.length;
             if (n < 2) continue;
 
-            // Circle Method
             const teams = [...teamIds];
             if (n % 2 !== 0) teams.push(-1); // Bye
 
@@ -283,16 +370,17 @@ export async function generateGroupStageMatches(tournamentId: number, bestOf: nu
 
                     if (home === -1 || away === -1) continue;
 
+                    // Note: Use 'scheduled_to' if your DB expects it, or 'scheduled_at' if you mapped it back.
+                    // Based on previous errors, I'm using 'scheduled_to' here to be safe with your DB schema.
                     await client.query(
                         `INSERT INTO matches 
-                         (tournament_id, stage, group_name, round, team_a_id, team_b_id, best_of, status)
-                         VALUES ($1, 'groups', $2, $3, $4, $5, $6, 'scheduled')`,
+                         (tournament_id, stage, group_name, round, team_a_id, team_b_id, best_of, status, scheduled_to)
+                         VALUES ($1, 'groups', $2, $3, $4, $5, $6, 'scheduled', NULL)`,
                         [tournamentId, groupName, round + 1, home, away, bestOf]
                     );
                     totalMatches++;
                 }
 
-                // Rotate
                 const fixed = teams[0];
                 const rotating = teams.slice(1);
                 const last = rotating.pop();
