@@ -5,14 +5,14 @@ const players_service_1 = require("../services/players.service");
 const createPlayerController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         const { username, summoner_name, role } = req.body;
         // Check if player already exists
-        const existingPlayer = await (0, players_service_1.getPlayerByKeycloakId)(keycloakId);
+        const existingPlayer = await (0, players_service_1.getPlayerBySupabaseId)(supabaseId);
         if (existingPlayer) {
             return res.status(409).json({ error: 'Player already registered' });
         }
-        const player = await (0, players_service_1.createPlayer)(keycloakId, username, summoner_name, role);
+        const player = await (0, players_service_1.createPlayer)(supabaseId, username, summoner_name, role);
         res.status(201).json(player);
     }
     catch (error) {
@@ -24,8 +24,8 @@ exports.createPlayerController = createPlayerController;
 const getMeController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
-        const player = await (0, players_service_1.getPlayerByKeycloakId)(keycloakId);
+        const supabaseId = auth.sub;
+        const player = await (0, players_service_1.getPlayerBySupabaseId)(supabaseId);
         if (!player) {
             return res.status(404).json({ error: 'Player profile not found' });
         }

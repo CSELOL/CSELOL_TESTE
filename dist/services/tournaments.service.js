@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRegistration = exports.updateRegistrationStatus = exports.registerTeam = void 0;
+exports.registerTeam = void 0;
 exports.createTournament = createTournament;
 exports.getTournaments = getTournaments;
 exports.getTournamentById = getTournamentById;
@@ -109,20 +109,6 @@ const registerTeam = async (tournamentId, teamId, paymentProofUrl) => {
     }
 };
 exports.registerTeam = registerTeam;
-const updateRegistrationStatus = async (tournamentId, teamId, status) => {
-    // status should be 'APPROVED' or 'REJECTED' or 'PENDING'
-    const result = await database_1.db.query(`UPDATE tournament_registrations SET status = $1, updated_at = NOW() WHERE tournament_id = $2 AND team_id = $3 RETURNING *`, [status, tournamentId, teamId]);
-    return result.rows[0];
-};
-exports.updateRegistrationStatus = updateRegistrationStatus;
-const getRegistration = async (tournamentId, teamId) => {
-    const result = await database_1.db.query(`SELECT * FROM tournament_registrations WHERE tournament_id = $1 AND team_id = $2`, [tournamentId, teamId]);
-    return result.rows[0];
-};
-exports.getRegistration = getRegistration;
-/// ==========================================
-// NEW: ADVANCED TOURNAMENT LOGIC
-// ==========================================
 /**
  * Generates a Group Stage (Round Robin)
  * - Splits teams into N groups (e.g., 2 groups)

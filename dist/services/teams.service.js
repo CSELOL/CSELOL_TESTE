@@ -19,7 +19,7 @@ const createTeam = async (name, tag, logoUrl, description, socialMedia, userId) 
         // Assuming 'team_role' column exists in users. If not, remove that part.
         await client.query(`UPDATE users 
        SET team_id = $1, team_role = 'CAPTAIN' 
-       WHERE keycloak_id = $2`, [team.id, userId]);
+       WHERE supabase_id = $2`, [team.id, userId]);
         await client.query('COMMIT');
         console.log('Team created successfully:', team);
         return team;
@@ -54,7 +54,7 @@ const getTeamByInviteCode = async (code) => {
 };
 exports.getTeamByInviteCode = getTeamByInviteCode;
 const getTeamMembers = async (teamId) => {
-    const result = await database_1.db.query(`SELECT id, keycloak_id, nickname, avatar_url, team_role, primary_role, secondary_role 
+    const result = await database_1.db.query(`SELECT id, supabase_id, nickname, avatar_url, team_role, primary_role, secondary_role 
      FROM users 
      WHERE team_id = $1`, [teamId]);
     return result.rows;
@@ -70,9 +70,9 @@ const transferTeamOwnership = async (teamId, currentCaptainId, newCaptainId) => 
     try {
         await client.query('BEGIN');
         // 1. Demote current captain to MEMBER
-        await client.query(`UPDATE users SET team_role = 'MEMBER' WHERE keycloak_id = $1 AND team_id = $2`, [currentCaptainId, teamId]);
+        await client.query(`UPDATE users SET team_role = 'MEMBER' WHERE supabase_id = $1 AND team_id = $2`, [currentCaptainId, teamId]);
         // 2. Promote new captain to CAPTAIN
-        await client.query(`UPDATE users SET team_role = 'CAPTAIN' WHERE keycloak_id = $1 AND team_id = $2`, [newCaptainId, teamId]);
+        await client.query(`UPDATE users SET team_role = 'CAPTAIN' WHERE supabase_id = $1 AND team_id = $2`, [newCaptainId, teamId]);
         // 3. Update team ownership record (captain_id)
         const result = await client.query(`UPDATE teams SET captain_id = $1 WHERE id = $2 RETURNING *`, [newCaptainId, teamId]);
         await client.query('COMMIT');
@@ -92,7 +92,7 @@ const getTeamMatches = async (teamId) => {
        m.id,
        m.round,
        m.status,
-       m.scheduled_at as start_time,
+       m.created_at as start_time,
        m.score_a,
        m.score_b,
        m.winner_id,
@@ -104,7 +104,7 @@ const getTeamMatches = async (teamId) => {
      LEFT JOIN teams ta ON m.team_a_id = ta.id
      LEFT JOIN teams tb ON m.team_b_id = tb.id
      WHERE m.team_a_id = $1 OR m.team_b_id = $1
-     ORDER BY m.scheduled_at ASC`, [teamId]);
+     ORDER BY m.created_at ASC`, [teamId]);
     return result.rows;
 };
 exports.getTeamMatches = getTeamMatches;
@@ -113,13 +113,11 @@ const getTeamTournaments = async (teamId) => {
        t.id,
        t.tournament_name as name,
        t.status,
-       CASE
-         WHEN p.approved = true THEN 'APPROVED'
-         ELSE 'PENDING'
-       END as registration_status
-     FROM participants p
-     JOIN tournaments t ON p.tournament_id = t.id
-     WHERE p.team_id = $1`, [teamId]);
+       UPPER(tr.status) as registration_status,
+       tr.rejection_reason
+     FROM tournament_registrations tr
+     JOIN tournaments t ON tr.tournament_id = t.id
+     WHERE tr.team_id = $1`, [teamId]);
     return result.rows;
 };
 exports.getTeamTournaments = getTeamTournaments;

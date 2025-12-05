@@ -7,7 +7,12 @@ exports.db = void 0;
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+console.log("DATABASE_URL:", process.env.DATABASE_URL);
 exports.db = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
 });
+// Test connection on startup
+exports.db.query('SELECT NOW()')
+    .then(() => console.log('✅ Database connected successfully!'))
+    .catch((err) => console.error('❌ Database connection failed:', err.message));
 //# sourceMappingURL=database.js.map

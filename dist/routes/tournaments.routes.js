@@ -20,17 +20,21 @@ router.get('/:id/public-teams', tournaments_controller_1.getPublicTournamentTeam
 // --- MATCHES SUB-ROUTE ---
 // Calls getMatches which checks req.params.id
 router.get('/:id/matches', matches_controller_1.getMatches);
+// FIX: Add this alias for the public frontend call
+router.get('/:id/public-matches', matches_controller_1.getMatches);
 // Bracket Generation
 router.post('/:id/generate-bracket', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_controller_1.generateBracketController);
 router.post('/:id/generate-groups', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_controller_1.generateGroupsController);
 // Registration
 router.post('/:id/register', auth_middleware_1.jwtAuth, registrations_controller_1.registerForTournament);
+router.delete('/:id/register', auth_middleware_1.jwtAuth, registrations_controller_1.withdrawRegistration);
 router.put('/registrations/:id/status', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), registrations_controller_1.updateRegistrationStatus);
 router.get('/registrations/:id/proof', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), registrations_controller_1.getPaymentProofUrl);
 // --- Advanced Tournament Management ---
 router.post('/:id/assign-groups', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_management_controller_1.assignGroupsController);
 router.get('/:id/groups', tournaments_management_controller_1.getGroupsController);
 router.post('/:id/matches', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_management_controller_1.createMatchController);
+router.post('/:id/generate-group-matches', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_management_controller_1.generateGroupMatchesController);
 router.put('/:id/matches/bulk', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_management_controller_1.bulkUpdateMatchesController);
 router.post('/:id/stages', auth_middleware_1.jwtAuth, (0, auth_middleware_1.checkRole)(['admin']), tournaments_management_controller_1.createStageController);
 exports.default = router;

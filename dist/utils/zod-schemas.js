@@ -128,7 +128,7 @@ exports.StandingSchema = registry_1.registry.register('Standing', zod_1.z.object
 }));
 exports.UserSchema = registry_1.registry.register('User', zod_1.z.object({
     id: zod_1.z.number().int().openapi({ example: 1 }),
-    keycloak_id: zod_1.z.string().nullable().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
+    supabase_id: zod_1.z.string().nullable().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
     email: zod_1.z.string().email().nullable().openapi({ example: 'user@example.com' }),
     nickname: zod_1.z.string().nullable().openapi({ example: 'Faker' }),
     avatar_url: zod_1.z.string().nullable().openapi({ example: 'https://example.com/avatar.png' }),

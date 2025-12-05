@@ -9,7 +9,7 @@ const zod_schemas_1 = require("../utils/zod-schemas");
 const createTeamController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         const { name, tag, description, social_media } = req.body;
         let logo_url = req.body.logo_url;
         // Handle File Upload (Local)
@@ -54,7 +54,7 @@ const createTeamController = async (req, res) => {
             throw error;
         }
         // 1. Get User
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user) {
             // This shouldn't happen if auth middleware syncs user, but good to check
             return res.status(400).json({ error: 'User not found.' });
@@ -63,7 +63,7 @@ const createTeamController = async (req, res) => {
             return res.status(409).json({ error: 'You are already in a team.' });
         }
         // 2. Create Team
-        const team = await (0, teams_service_1.createTeam)(name, tag, logo_url, description, parsedSocialMedia, keycloakId);
+        const team = await (0, teams_service_1.createTeam)(name, tag, logo_url, description, parsedSocialMedia, supabaseId);
         res.status(201).json(team);
     }
     catch (error) {
@@ -75,10 +75,10 @@ exports.createTeamController = createTeamController;
 const joinTeamController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         const teamId = parseInt(req.params.id);
         // 1. Get User
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user) {
             return res.status(400).json({ error: 'User not found.' });
         }
@@ -108,9 +108,9 @@ exports.joinTeamController = joinTeamController;
 const getMyTeamController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         // 1. Get User
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
@@ -134,13 +134,13 @@ exports.getMyTeamController = getMyTeamController;
 const joinTeamByCodeController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         const { code } = req.body;
         if (!code) {
             return res.status(400).json({ error: 'Invite code is required.' });
         }
         // 1. Get User
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
@@ -179,15 +179,15 @@ exports.getTeamMembersController = getTeamMembersController;
 const refreshInviteCodeController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
+        const supabaseId = auth.sub;
         const teamId = parseInt(req.params.id);
         // 1. Get User & Check Permissions (Must be Captain/Creator)
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         const team = await (0, teams_service_1.getTeamById)(teamId);
         if (!team) {
             return res.status(404).json({ error: 'Team not found.' });
         }
-        if (team.captain_id !== keycloakId) {
+        if (team.captain_id !== supabaseId) {
             return res.status(403).json({ error: 'Only the team captain can refresh the invite code.' });
         }
         // 2. Generate New Code
@@ -224,7 +224,7 @@ const transferOwnershipController = async (req, res) => {
         // 2. Verify New Captain is in the team
         const { getTeamMembers, transferTeamOwnership } = require('../services/teams.service');
         const members = await getTeamMembers(teamId);
-        const newCaptain = members.find((m) => m.keycloak_id === newCaptainId);
+        const newCaptain = members.find((m) => m.supabase_id === newCaptainId);
         if (!newCaptain) {
             return res.status(400).json({ error: 'The new captain must be a member of the team.' });
         }
@@ -241,8 +241,8 @@ exports.transferOwnershipController = transferOwnershipController;
 const getMyTeamMatchesController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const supabaseId = auth.sub;
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user || !user.team_id) {
             return res.status(404).json({ error: 'User not found or not in a team.' });
         }
@@ -258,8 +258,8 @@ exports.getMyTeamMatchesController = getMyTeamMatchesController;
 const getMyTeamTournamentsController = async (req, res) => {
     try {
         const auth = req.auth;
-        const keycloakId = auth.sub;
-        const user = await (0, users_service_1.getUserByKeycloakId)(keycloakId);
+        const supabaseId = auth.sub;
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
         if (!user || !user.team_id) {
             return res.status(404).json({ error: 'User not found or not in a team.' });
         }

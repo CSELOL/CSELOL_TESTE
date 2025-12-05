@@ -9,6 +9,7 @@ exports.generateBracketController = generateBracketController;
 exports.generateGroupsController = generateGroupsController;
 const tournaments_service_1 = require("../services/tournaments.service");
 const database_1 = require("../config/database");
+// ... (keep createTournamentController, getAllTournamentsController, updateTournamentController, deleteTournamentController as they are)
 async function createTournamentController(req, res) {
     try {
         const tournament = await (0, tournaments_service_1.createTournament)(req.body);
@@ -57,7 +58,7 @@ async function deleteTournamentController(req, res) {
         return res.status(500).json({ error: err.message || 'Error deleting tournament' });
     }
 }
-// --- FIXED: Removed u.real_name from query ---
+// UPDATED CONTROLLER
 const getTournamentTeamsController = async (req, res) => {
     const { id } = req.params;
     try {
@@ -77,8 +78,10 @@ const getTournamentTeamsController = async (req, res) => {
             SELECT json_agg(json_build_object(
                 'id', u.id,
                 'nickname', u.nickname,
+                'riot_id', u.riot_id, -- Added Riot ID
                 'avatar_url', u.avatar_url,
-                'role', u.team_role
+                'role', u.team_role,
+                'primary_role', u.primary_role
             ))
             FROM users u
             WHERE u.team_id = t.id
@@ -101,7 +104,23 @@ const getPublicTournamentTeamsController = async (req, res) => {
     const { id } = req.params;
     try {
         const query = `
-        SELECT t.id, t.name, t.tag, t.logo_url
+        SELECT 
+          t.id, 
+          t.name, 
+          t.tag, 
+          t.logo_url,
+          (
+            SELECT json_agg(json_build_object(
+                'id', u.id,
+                'nickname', u.nickname,
+                'riot_id', u.riot_id, -- Added Riot ID
+                'avatar_url', u.avatar_url,
+                'role', u.team_role,
+                'primary_role', u.primary_role
+            ))
+            FROM users u
+            WHERE u.team_id = t.id
+          ) as roster
         FROM teams t
         JOIN tournament_registrations tr ON t.id = tr.team_id
         WHERE tr.tournament_id = $1 AND (tr.status = 'approved' OR tr.status = 'APPROVED')
@@ -130,7 +149,6 @@ async function generateBracketController(req, res) {
 async function generateGroupsController(req, res) {
     try {
         const id = parseInt(req.params.id);
-        // Read config from body (e.g., { groups: 2, bo: 1 })
         const { groups, bestOf } = req.body;
         await (0, tournaments_service_1.generateGroupStage)(id, groups || 1, bestOf || 1);
         return res.status(200).json({ message: "Group stage generated successfully" });

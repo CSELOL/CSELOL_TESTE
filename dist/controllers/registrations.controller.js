@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPaymentProofUrl = exports.updateRegistrationStatus = exports.registerForTournament = exports.getTournamentTeams = exports.getTournamentById = void 0;
+exports.withdrawRegistration = exports.getPaymentProofUrl = exports.updateRegistrationStatus = exports.registerForTournament = exports.getTournamentTeams = exports.getTournamentById = void 0;
 const database_1 = require("../config/database");
 const supabase_1 = require("../config/supabase");
 // --- 1. GET SINGLE TOURNAMENT ---
@@ -84,10 +84,15 @@ exports.registerForTournament = registerForTournament;
 // --- 4. UPDATE STATUS ---
 const updateRegistrationStatus = async (req, res) => {
     const { id } = req.params; // Fixed from regId
-    const { status } = req.body;
+    const { status, rejection_reason } = req.body;
     try {
-        const query = `UPDATE tournament_registrations SET status = $1 WHERE id = $2 RETURNING *`;
-        const result = await database_1.db.query(query, [status, id]);
+        const query = `
+            UPDATE tournament_registrations 
+            SET status = $1, rejection_reason = $2, updated_at = NOW() 
+            WHERE id = $3 
+            RETURNING *
+        `;
+        const result = await database_1.db.query(query, [status, rejection_reason || null, id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Registration not found" });
         }
@@ -134,4 +139,36 @@ const getPaymentProofUrl = async (req, res) => {
     }
 };
 exports.getPaymentProofUrl = getPaymentProofUrl;
+// --- 6. WITHDRAW REGISTRATION ---
+const withdrawRegistration = async (req, res) => {
+    const { id } = req.params; // Tournament ID
+    const auth = req.auth;
+    const userId = auth?.sub;
+    if (!userId)
+        return res.status(401).json({ error: "Unauthorized" });
+    try {
+        // 1. Get User's Team
+        const teamRes = await database_1.db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
+        if (teamRes.rows.length === 0) {
+            return res.status(400).json({ error: "You must be a Team Captain." });
+        }
+        const team = teamRes.rows[0];
+        // 2. Delete Registration
+        const query = `
+            DELETE FROM tournament_registrations 
+            WHERE tournament_id = $1 AND team_id = $2 
+            RETURNING *
+        `;
+        const result = await database_1.db.query(query, [id, team.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Registration not found or already withdrawn." });
+        }
+        res.json({ message: "Registration withdrawn successfully." });
+    }
+    catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Withdrawal failed" });
+    }
+};
+exports.withdrawRegistration = withdrawRegistration;
 //# sourceMappingURL=registrations.controller.js.map

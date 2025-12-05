@@ -1,9 +1,9 @@
 import { db } from '../config/database';
 
-export const getUserByKeycloakId = async (keycloakId: string) => {
+export const getUserBySupabaseId = async (supabaseId: string) => {
     const result = await db.query(
-        'SELECT * FROM users WHERE keycloak_id = $1',
-        [keycloakId]
+        'SELECT * FROM users WHERE supabase_id = $1',
+        [supabaseId]
     );
     return result.rows[0];
 };

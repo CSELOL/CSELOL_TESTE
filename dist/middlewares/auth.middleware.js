@@ -5,35 +5,40 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkRole = exports.jwtAuth = void 0;
 const express_jwt_1 = require("express-jwt");
-const jwks_rsa_1 = __importDefault(require("jwks-rsa"));
 const dotenv_1 = __importDefault(require("dotenv"));
-// CORRECTED IMPORT based on your screenshot
 const database_1 = require("../config/database");
 dotenv_1.default.config();
-const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || "cselol";
-const KEYCLOAK_ISSUER = `http://localhost:8080/realms/${KEYCLOAK_REALM}`;
+// Supabase JWT Configuration
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (!SUPABASE_JWT_SECRET) {
+    console.error("FATAL: SUPABASE_JWT_SECRET is not set in environment variables!");
+}
 // --- Database Sync Middleware ---
 const syncUserToDatabase = async (req, res, next) => {
     const auth = req.auth;
     if (!auth || !auth.sub) {
         return next();
     }
-    const keycloakId = auth.sub;
+    const supabaseId = auth.sub;
     const email = auth.email || "";
-    const nickname = auth.preferred_username || auth.name || "Summoner";
+    // Supabase uses user_metadata for custom fields, fallback to email prefix
+    const nickname = auth.user_metadata?.nickname ||
+        auth.user_metadata?.name ||
+        auth.email?.split('@')[0] ||
+        "Summoner";
     try {
-        // Sync Logic
+        // Sync Logic - upsert user based on supabase_id
         const query = `
-            INSERT INTO users (keycloak_id, email, nickname)
+            INSERT INTO users (supabase_id, email, nickname)
             VALUES ($1, $2, $3)
-            ON CONFLICT (keycloak_id) 
+            ON CONFLICT (supabase_id) 
             DO UPDATE SET 
                 email = EXCLUDED.email,
                 nickname = EXCLUDED.nickname,
                 updated_at = CURRENT_TIMESTAMP
         `;
-        // Using 'db' instead of 'pool'
-        await database_1.db.query(query, [keycloakId, email, nickname]);
+        await database_1.db.query(query, [supabaseId, email, nickname]);
         next();
     }
     catch (error) {
@@ -44,40 +49,38 @@ const syncUserToDatabase = async (req, res, next) => {
 // --- Main Auth Middleware Chain ---
 exports.jwtAuth = [
     (0, express_jwt_1.expressjwt)({
-        secret: jwks_rsa_1.default.expressJwtSecret({
-            cache: true,
-            rateLimit: true,
-            jwksRequestsPerMinute: 10,
-            jwksUri: `${KEYCLOAK_ISSUER}/protocol/openid-connect/certs`
-        }),
-        issuer: KEYCLOAK_ISSUER,
-        algorithms: ["RS256"],
+        secret: SUPABASE_JWT_SECRET,
+        algorithms: ["HS256"],
         requestProperty: "auth",
+        // Supabase issuer format: https://[project-ref].supabase.co/auth/v1
+        issuer: SUPABASE_URL ? `${SUPABASE_URL}/auth/v1` : undefined,
     }),
     syncUserToDatabase
 ];
-// --- Role Checker ---
+// --- Role Checker (queries user_roles table) ---
 const checkRole = (roles) => {
-    return (req, res, next) => {
+    return async (req, res, next) => {
         const auth = req.auth;
         if (!auth) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
-        const realmRoles = auth?.realm_access?.roles || [];
-        const resourceRoles = [];
-        if (auth?.resource_access) {
-            Object.values(auth.resource_access).forEach((resource) => {
-                if (resource.roles) {
-                    resourceRoles.push(...resource.roles);
-                }
-            });
+        try {
+            const supabaseId = auth.sub;
+            // Query user_roles table to get user's roles
+            const result = await database_1.db.query(`SELECT r.role FROM user_roles r
+                 JOIN users u ON r.user_id = u.id
+                 WHERE u.supabase_id = $1`, [supabaseId]);
+            const userRoles = result.rows.map((r) => r.role);
+            const hasRole = roles.some(role => userRoles.includes(role));
+            if (!hasRole) {
+                return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+            }
+            next();
         }
-        const allRoles = [...realmRoles, ...resourceRoles];
-        const hasRole = roles.some(role => allRoles.includes(role));
-        if (!hasRole) {
-            return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+        catch (error) {
+            console.error("Error checking user roles:", error);
+            return res.status(500).json({ error: 'Internal server error' });
         }
-        next();
     };
 };
 exports.checkRole = checkRole;

@@ -169,7 +169,7 @@ export const UserSchema = registry.register(
     'User',
     z.object({
         id: z.number().int().openapi({ example: 1 }),
-        keycloak_id: z.string().nullable().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
+        supabase_id: z.string().nullable().openapi({ example: '5a321c34-d952-4978-8a92-9f4134852b15' }),
         email: z.string().email().nullable().openapi({ example: 'user@example.com' }),
         nickname: z.string().nullable().openapi({ example: 'Faker' }),
         avatar_url: z.string().nullable().openapi({ example: 'https://example.com/avatar.png' }),

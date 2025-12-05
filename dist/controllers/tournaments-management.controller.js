@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createStageController = exports.bulkUpdateMatchesController = exports.createMatchController = exports.getGroupsController = exports.assignGroupsController = void 0;
+exports.generateGroupMatchesController = exports.createStageController = exports.bulkUpdateMatchesController = exports.createMatchController = exports.getGroupsController = exports.assignGroupsController = void 0;
 const tournamentManagementService = __importStar(require("../services/tournaments-management.service"));
 const assignGroupsController = async (req, res) => {
     try {
@@ -105,4 +105,17 @@ const createStageController = async (req, res) => {
     }
 };
 exports.createStageController = createStageController;
+const generateGroupMatchesController = async (req, res) => {
+    try {
+        const tournamentId = parseInt(req.params.id);
+        const { bestOf } = req.body;
+        const result = await tournamentManagementService.generateGroupStageMatches(tournamentId, bestOf || 1);
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error generating group matches:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+};
+exports.generateGroupMatchesController = generateGroupMatchesController;
 //# sourceMappingURL=tournaments-management.controller.js.map

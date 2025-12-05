@@ -146,7 +146,7 @@ CREATE TABLE tournaments (
 DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
   id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
-  keycloak_id text,
+  supabase_id text,
   username text,
   email text,
   full_name text,

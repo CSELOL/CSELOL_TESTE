@@ -31,7 +31,7 @@ export const createTeam = async (
     await client.query(
       `UPDATE users 
        SET team_id = $1, team_role = 'CAPTAIN' 
-       WHERE keycloak_id = $2`,
+       WHERE supabase_id = $2`,
       [team.id, userId]
     );
 
@@ -77,7 +77,7 @@ export const getTeamByInviteCode = async (code: string) => {
 
 export const getTeamMembers = async (teamId: number) => {
   const result = await pool.query(
-    `SELECT id, keycloak_id, nickname, avatar_url, team_role, primary_role, secondary_role 
+    `SELECT id, supabase_id, nickname, avatar_url, team_role, primary_role, secondary_role 
      FROM users 
      WHERE team_id = $1`,
     [teamId]
@@ -100,13 +100,13 @@ export const transferTeamOwnership = async (teamId: number, currentCaptainId: st
 
     // 1. Demote current captain to MEMBER
     await client.query(
-      `UPDATE users SET team_role = 'MEMBER' WHERE keycloak_id = $1 AND team_id = $2`,
+      `UPDATE users SET team_role = 'MEMBER' WHERE supabase_id = $1 AND team_id = $2`,
       [currentCaptainId, teamId]
     );
 
     // 2. Promote new captain to CAPTAIN
     await client.query(
-      `UPDATE users SET team_role = 'CAPTAIN' WHERE keycloak_id = $1 AND team_id = $2`,
+      `UPDATE users SET team_role = 'CAPTAIN' WHERE supabase_id = $1 AND team_id = $2`,
       [newCaptainId, teamId]
     );
 
