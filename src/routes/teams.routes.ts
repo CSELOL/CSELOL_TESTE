@@ -4,8 +4,6 @@ import { jwtAuth } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import { CreateTeamSchema } from '../utils/zod-schemas';
 
-import { localUpload } from '../config/multer';
-
 const router = Router();
 
 /**
@@ -13,13 +11,16 @@ const router = Router();
  * /teams:
  *   post:
  *     summary: Create a new team
+ *     description: |
+ *       To upload a logo, first call POST /api/files/team-logo to get the URL,
+ *       then pass it as logo_url in this request.
  *     tags: [Teams]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -30,11 +31,10 @@ const router = Router();
  *               description:
  *                 type: string
  *               social_media:
+ *                 type: object
+ *               logo_url:
  *                 type: string
- *                 description: JSON string of social media links
- *               logo:
- *                 type: string
- *                 format: binary
+ *                 description: URL from /api/files/team-logo upload
  *     responses:
  *       201:
  *         description: Team created
@@ -49,7 +49,7 @@ const router = Router();
  *       401:
  *         description: Unauthorized
  */
-router.post('/', jwtAuth, localUpload.single('logo'), createTeamController);
+router.post('/', jwtAuth, createTeamController);
 
 /**
  * @swagger

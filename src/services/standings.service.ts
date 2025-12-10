@@ -1,24 +1,36 @@
-import pool from "../db";
+import { db as pool } from '../config/database';
 
 export async function calculateStandings(tournamentId: number) {
   const { rows } = await pool.query(
-    `
-    SELECT 
-      t.id,
-      t.name,
-      t.logo,
-      COALESCE(SUM(CASE WHEN m.team1_id = t.id THEN m.score1 > m.score2
-                        WHEN m.team2_id = t.id THEN m.score2 > m.score1 END), 0) AS wins,
-      COALESCE(SUM(CASE WHEN m.team1_id = t.id THEN m.score1 < m.score2
-                        WHEN m.team2_id = t.id THEN m.score2 < m.score1 END), 0) AS losses
-    FROM teams t
-    LEFT JOIN matches m ON m.team1_id = t.id OR m.team2_id = t.id
-    WHERE m.tournament_id = $1
-    GROUP BY t.id
-    ORDER BY wins DESC
-    `,
+    `SELECT ts.team_id, ts.wins, ts.losses, ts.points, ts.group_name,
+                t.id, t.name, t.logo_url as logo
+         FROM tournament_standings ts
+         JOIN teams t ON ts.team_id = t.id
+         WHERE ts.tournament_id = $1
+         ORDER BY ts.points DESC, ts.wins DESC`,
     [tournamentId]
   );
 
+  return rows.map(row => ({
+    id: row.id,
+    name: row.name,
+    logo: row.logo,
+    wins: row.wins || 0,
+    losses: row.losses || 0,
+    points: row.points || 0,
+    group_name: row.group_name
+  }));
+}
+
+export async function getStandingsByGroup(tournamentId: number, groupName: string) {
+  const { rows } = await pool.query(
+    `SELECT ts.team_id, ts.wins, ts.losses, ts.points,
+                t.id, t.name, t.tag, t.logo_url
+         FROM tournament_standings ts
+         JOIN teams t ON ts.team_id = t.id
+         WHERE ts.tournament_id = $1 AND ts.group_name = $2
+         ORDER BY ts.points DESC`,
+    [tournamentId, groupName]
+  );
   return rows;
 }

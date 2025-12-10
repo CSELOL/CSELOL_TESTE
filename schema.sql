@@ -63,17 +63,8 @@ CREATE TABLE tournament_registrations (
   PRIMARY KEY (id)
 );
 
-DROP TABLE IF EXISTS players CASCADE;
-CREATE TABLE players (
-  id integer NOT NULL DEFAULT nextval('players_id_seq'::regclass),
-  user_id integer,
-  nickname text NOT NULL,
-  ingame_name text,
-  team_id integer,
-  avatar_url text,
-  created_at timestamp without time zone DEFAULT now(),
-  PRIMARY KEY (id)
-);
+-- NOTE: players table is deprecated. Use users table instead.
+-- All player data (riot_id, primary_role, secondary_role, team_id) is stored in users.
 
 DROP TABLE IF EXISTS stages CASCADE;
 CREATE TABLE stages (
@@ -156,12 +147,16 @@ CREATE TABLE users (
   primary_role text,
   secondary_role text,
   team_id integer,
-  team_role text,
+  team_role text,           -- Team role: 'CAPTAIN', 'PLAYER', 'COACH', 'MANAGER'
   roster_status text,
   phone_number text,
   is_onboarded boolean DEFAULT false,
-  role text DEFAULT 'user'::text,
+  role text DEFAULT 'user'::text,  -- System role: 'user', 'admin', 'organizer'
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
   PRIMARY KEY (id)
 );
+
+-- NOTE: user_roles table is deprecated. Use users.role column instead.
+-- System roles: 'user' (default), 'admin', 'organizer'
+-- Team roles are stored in users.team_role: 'CAPTAIN', 'PLAYER', 'COACH', 'MANAGER'

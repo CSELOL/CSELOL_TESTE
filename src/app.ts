@@ -1,12 +1,12 @@
 import express from "express";
 import cors from 'cors';
-import path from 'path'; // Added path import
+import path from 'path';
 import tournamentRoutes from './routes/tournaments.routes';
 import teamRoutes from './routes/teams.routes';
 import matchRoutes from './routes/matches.routes';
 import standingRoutes from './routes/standings.routes';
-import playerRoutes from './routes/players.routes';
-import fileRoutes from './routes/files.routes'; // Added fileRoutes import
+import userRoutes from './routes/users.routes';
+import fileRoutes from './routes/files.routes';
 import swaggerUi from 'swagger-ui-express';
 import { generateOpenApiDocs } from './config/openapi';
 
@@ -30,8 +30,8 @@ const swaggerDocs = generateOpenApiDocs();
 // Swagger UI
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
   swaggerOptions: {
-    defaultModelsExpandDepth: -1, // Hide schemas section by default
-    docExpansion: 'list' // Expand tags by default
+    defaultModelsExpandDepth: -1,
+    docExpansion: 'list'
   }
 }));
 
@@ -40,8 +40,8 @@ app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/standings', standingRoutes);
-app.use('/api/players', playerRoutes);
-app.use('/api/files', fileRoutes); // Added file routes
+app.use('/api/users', userRoutes);
+app.use('/api/files', fileRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

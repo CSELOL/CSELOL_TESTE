@@ -1,26 +1,32 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateStandings = calculateStandings;
-const db_1 = __importDefault(require("../db"));
+exports.getStandingsByGroup = getStandingsByGroup;
+const database_1 = require("../config/database");
 async function calculateStandings(tournamentId) {
-    const { rows } = await db_1.default.query(`
-    SELECT 
-      t.id,
-      t.name,
-      t.logo,
-      COALESCE(SUM(CASE WHEN m.team1_id = t.id THEN m.score1 > m.score2
-                        WHEN m.team2_id = t.id THEN m.score2 > m.score1 END), 0) AS wins,
-      COALESCE(SUM(CASE WHEN m.team1_id = t.id THEN m.score1 < m.score2
-                        WHEN m.team2_id = t.id THEN m.score2 < m.score1 END), 0) AS losses
-    FROM teams t
-    LEFT JOIN matches m ON m.team1_id = t.id OR m.team2_id = t.id
-    WHERE m.tournament_id = $1
-    GROUP BY t.id
-    ORDER BY wins DESC
-    `, [tournamentId]);
+    const { rows } = await database_1.db.query(`SELECT ts.team_id, ts.wins, ts.losses, ts.points, ts.group_name,
+                t.id, t.name, t.logo_url as logo
+         FROM tournament_standings ts
+         JOIN teams t ON ts.team_id = t.id
+         WHERE ts.tournament_id = $1
+         ORDER BY ts.points DESC, ts.wins DESC`, [tournamentId]);
+    return rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        logo: row.logo,
+        wins: row.wins || 0,
+        losses: row.losses || 0,
+        points: row.points || 0,
+        group_name: row.group_name
+    }));
+}
+async function getStandingsByGroup(tournamentId, groupName) {
+    const { rows } = await database_1.db.query(`SELECT ts.team_id, ts.wins, ts.losses, ts.points,
+                t.id, t.name, t.tag, t.logo_url
+         FROM tournament_standings ts
+         JOIN teams t ON ts.team_id = t.id
+         WHERE ts.tournament_id = $1 AND ts.group_name = $2
+         ORDER BY ts.points DESC`, [tournamentId, groupName]);
     return rows;
 }
 //# sourceMappingURL=standings.service.js.map

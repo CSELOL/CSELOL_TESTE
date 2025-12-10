@@ -1,59 +1,136 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
+import { uploadToStorage, deleteFromStorage } from '../config/storage';
+
+// Storage bucket names
+const BUCKETS = {
+    PUBLIC: 'public-assets',      // For logos, banners (public access)
+    PRIVATE: 'private-assets'     // For payment proofs (signed URLs)
+};
 
 // POST /api/files/upload
-export const uploadFile = (req: Request, res: Response) => {
+// Body: file (multipart), type ('tournament' | 'team' | 'payment-proof')
+export const uploadFile = async (req: Request, res: Response) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Construct the Public URL
-    // Assuming your server runs on localhost:3333
-    // The path will be relative to the public folder
-    const filePath = req.file.path.replace(/\\/g, '/'); // Fix Windows slashes
-    const publicUrl = `${req.protocol}://${req.get('host')}/${filePath.replace('public/', '')}`;
-
-    res.json({ url: publicUrl, filePath: filePath });
-};
-
-// DELETE /api/files/delete (Admin Only)
-export const deleteFile = (req: Request, res: Response) => {
-    const { fileUrl } = req.body;
-
-    if (!fileUrl) return res.status(400).json({ error: 'No URL provided' });
+    const type = req.body.type || 'misc';
 
     try {
-        // Convert URL back to file path
-        // Example: http://localhost:3333/uploads/tournaments/abc.jpg -> public/uploads/tournaments/abc.jpg
-        const relativePath = fileUrl.split('/').slice(3).join('/'); // Remove protocol/host
-        // Note: This splitting depends on the URL structure. 
-        // If url is http://localhost:3333/uploads/..., split('/') gives:
-        // [0] http:
-        // [1] 
-        // [2] localhost:3333
-        // [3] uploads
-        // ...
+        // Determine bucket and folder based on type
+        let bucket = BUCKETS.PUBLIC;
+        let folder = 'misc';
 
-        // However, we need to be careful if the host has slashes or different ports.
-        // A safer way might be to just look for 'uploads/' index.
-
-        const uploadsIndex = fileUrl.indexOf('uploads/');
-        if (uploadsIndex === -1) {
-            return res.status(400).json({ error: 'Invalid file URL' });
+        switch (type) {
+            case 'tournament':
+                folder = 'tournaments';
+                break;
+            case 'team':
+                folder = 'teams';
+                break;
+            case 'payment-proof':
+                bucket = BUCKETS.PRIVATE;
+                folder = 'payment-proofs';
+                break;
         }
 
-        const pathAfterUploads = fileUrl.substring(uploadsIndex);
-        const fullPath = path.join(process.cwd(), 'public', pathAfterUploads);
+        const result = await uploadToStorage(
+            req.file.buffer,
+            req.file.originalname,
+            bucket,
+            folder
+        );
 
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-            res.json({ message: 'File deleted' });
-        } else {
-            res.status(404).json({ error: 'File not found' });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Deletion failed' });
+        res.json({
+            url: result.url,
+            path: result.path,
+            bucket
+        });
+    } catch (error: any) {
+        console.error('Upload error:', error);
+        res.status(500).json({ error: error.message || 'Upload failed' });
+    }
+};
+
+// DELETE /api/files/delete
+// Body: { path, bucket }
+export const deleteFile = async (req: Request, res: Response) => {
+    const { path, bucket } = req.body;
+
+    if (!path) return res.status(400).json({ error: 'No path provided' });
+
+    try {
+        await deleteFromStorage(bucket || BUCKETS.PUBLIC, path);
+        res.json({ message: 'File deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete error:', error);
+        res.status(500).json({ error: error.message || 'Deletion failed' });
+    }
+};
+
+// POST /api/files/upload-team-logo
+// Convenience endpoint for team logo uploads
+export const uploadTeamLogo = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        const result = await uploadToStorage(
+            req.file.buffer,
+            req.file.originalname,
+            BUCKETS.PUBLIC,
+            'teams'
+        );
+
+        res.json({ url: result.url, path: result.path });
+    } catch (error: any) {
+        console.error('Team logo upload error:', error);
+        res.status(500).json({ error: error.message || 'Upload failed' });
+    }
+};
+
+// POST /api/files/upload-tournament-asset
+// Convenience endpoint for tournament banner/logo uploads
+export const uploadTournamentAsset = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        const result = await uploadToStorage(
+            req.file.buffer,
+            req.file.originalname,
+            BUCKETS.PUBLIC,
+            'tournaments'
+        );
+
+        res.json({ url: result.url, path: result.path });
+    } catch (error: any) {
+        console.error('Tournament asset upload error:', error);
+        res.status(500).json({ error: error.message || 'Upload failed' });
+    }
+};
+
+// POST /api/files/upload-payment-proof
+// For tournament registration payment proofs (private bucket)
+export const uploadPaymentProof = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        const result = await uploadToStorage(
+            req.file.buffer,
+            req.file.originalname,
+            BUCKETS.PRIVATE,
+            'payment-proofs'
+        );
+
+        // Return just the path (not public URL since it's private)
+        res.json({ path: result.path });
+    } catch (error: any) {
+        console.error('Payment proof upload error:', error);
+        res.status(500).json({ error: error.message || 'Upload failed' });
     }
 };

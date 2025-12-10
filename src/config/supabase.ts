@@ -1,15 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-// Use SUPABASE_SERVICE_ROLE_KEY for backend operations (full access)
-// Falls back to SUPABASE_ANON_KEY if service role not available
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY environment variables.');
+let supabase: SupabaseClient | null = null;
+
+if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+    console.log('✅ Supabase Storage client initialized');
+} else {
+    console.warn('⚠️ SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set - Storage features disabled');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export { supabase };

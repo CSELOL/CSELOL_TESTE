@@ -3,7 +3,6 @@ import { z } from 'zod';
 import {
     CreateTournamentSchema,
     CreateTeamSchema,
-    CreatePlayerSchema,
     CreateMatchSchema,
     TournamentSchema,
     TeamSchema,
@@ -376,50 +375,24 @@ registry.registerPath({
     }
 });
 
-// --- PLAYERS ---
-
-registry.registerPath({
-    method: 'post',
-    path: '/api/players',
-    tags: ['Players'],
-    summary: 'Create player profile',
-    security: [{ bearerAuth: [] }],
-    request: {
-        body: {
-            content: {
-                'application/json': {
-                    schema: CreatePlayerSchema
-                }
-            }
-        }
-    },
-    responses: {
-        201: {
-            description: 'Profile created',
-            content: {
-                'application/json': {
-                    schema: UserSchema
-                }
-            }
-        }
-    }
-});
+// --- USERS ---
 
 registry.registerPath({
     method: 'get',
-    path: '/api/players/me',
-    tags: ['Players'],
-    summary: 'Get my profile',
+    path: '/api/users/me',
+    tags: ['Users'],
+    summary: 'Get my profile (including role)',
     security: [{ bearerAuth: [] }],
     responses: {
         200: {
-            description: 'User profile',
+            description: 'User profile with role',
             content: {
                 'application/json': {
                     schema: UserSchema
                 }
             }
-        }
+        },
+        404: { description: 'User not found' }
     }
 });
 

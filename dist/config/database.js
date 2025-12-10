@@ -7,9 +7,12 @@ exports.db = void 0;
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
 exports.db = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
+    // Supabase connection pool settings
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 });
 // Test connection on startup
 exports.db.query('SELECT NOW()')

@@ -56,7 +56,8 @@ export const registerForTournament = async (req: Request, res: Response) => {
     if (!payment_proof_url) return res.status(400).json({ error: "Payment proof required" });
 
     try {
-        const teamRes = await db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
+        // Find team where user is captain
+        const teamRes = await db.query("SELECT * FROM teams WHERE captain_id = $1", [userId]);
         if (teamRes.rows.length === 0) {
             return res.status(400).json({ error: "You must be a Team Captain." });
         }
@@ -130,6 +131,10 @@ export const getPaymentProofUrl = async (req: Request, res: Response) => {
         // DEBUG: Log what we are trying to fetch
         console.log(`Attempting to sign URL for path: [${path}] in bucket 'payment-proofs'`);
 
+        if (!supabase) {
+            return res.status(500).json({ error: "Storage not configured. Missing SUPABASE_SERVICE_ROLE_KEY" });
+        }
+
         const { data, error } = await supabase
             .storage
             .from('private-assets')
@@ -162,8 +167,8 @@ export const withdrawRegistration = async (req: Request, res: Response) => {
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
     try {
-        // 1. Get User's Team
-        const teamRes = await db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
+        // 1. Get User's Team (where user is captain)
+        const teamRes = await db.query("SELECT * FROM teams WHERE captain_id = $1", [userId]);
         if (teamRes.rows.length === 0) {
             return res.status(400).json({ error: "You must be a Team Captain." });
         }

@@ -7,8 +7,7 @@ export const createRegistration = async (
 ) => {
     const result = await db.query(
         `INSERT INTO tournament_registrations (tournament_id, team_id, payment_proof_url)
-     VALUES ($1, $2, $3)
-     RETURNING *`,
+         VALUES ($1, $2, $3) RETURNING *`,
         [tournamentId, teamId, paymentProofUrl]
     );
     return result.rows[0];
@@ -16,8 +15,7 @@ export const createRegistration = async (
 
 export const getRegistration = async (tournamentId: number, teamId: number) => {
     const result = await db.query(
-        `SELECT * FROM tournament_registrations 
-     WHERE tournament_id = $1 AND team_id = $2`,
+        `SELECT * FROM tournament_registrations WHERE tournament_id = $1 AND team_id = $2`,
         [tournamentId, teamId]
     );
     return result.rows[0];

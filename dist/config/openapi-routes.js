@@ -346,48 +346,23 @@ registry_1.registry.registerPath({
         }
     }
 });
-// --- PLAYERS ---
-registry_1.registry.registerPath({
-    method: 'post',
-    path: '/api/players',
-    tags: ['Players'],
-    summary: 'Create player profile',
-    security: [{ bearerAuth: [] }],
-    request: {
-        body: {
-            content: {
-                'application/json': {
-                    schema: zod_schemas_1.CreatePlayerSchema
-                }
-            }
-        }
-    },
-    responses: {
-        201: {
-            description: 'Profile created',
-            content: {
-                'application/json': {
-                    schema: zod_schemas_1.UserSchema
-                }
-            }
-        }
-    }
-});
+// --- USERS ---
 registry_1.registry.registerPath({
     method: 'get',
-    path: '/api/players/me',
-    tags: ['Players'],
-    summary: 'Get my profile',
+    path: '/api/users/me',
+    tags: ['Users'],
+    summary: 'Get my profile (including role)',
     security: [{ bearerAuth: [] }],
     responses: {
         200: {
-            description: 'User profile',
+            description: 'User profile with role',
             content: {
                 'application/json': {
                     schema: zod_schemas_1.UserSchema
                 }
             }
-        }
+        },
+        404: { description: 'User not found' }
     }
 });
 // --- FILES ---

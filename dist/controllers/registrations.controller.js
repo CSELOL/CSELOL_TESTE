@@ -119,6 +119,9 @@ const getPaymentProofUrl = async (req, res) => {
         }
         // DEBUG: Log what we are trying to fetch
         console.log(`Attempting to sign URL for path: [${path}] in bucket 'payment-proofs'`);
+        if (!supabase_1.supabase) {
+            return res.status(500).json({ error: "Storage not configured. Missing SUPABASE_SERVICE_ROLE_KEY" });
+        }
         const { data, error } = await supabase_1.supabase
             .storage
             .from('private-assets')

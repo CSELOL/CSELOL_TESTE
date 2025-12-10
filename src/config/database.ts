@@ -3,10 +3,12 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
-
 export const db = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // Supabase connection pool settings
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 // Test connection on startup

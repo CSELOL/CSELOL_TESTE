@@ -14,22 +14,7 @@ export const createTeamController = async (req: Request, res: Response) => {
   try {
     const auth = (req as any).auth;
     const supabaseId = auth.sub;
-    const { name, tag, description, social_media } = req.body;
-    let logo_url = req.body.logo_url;
-
-    // Handle File Upload (Local)
-    if (req.file) {
-      // Construct the Public URL
-      // The path will be relative to the public folder
-      const filePath = req.file.path.replace(/\\/g, '/'); // Fix Windows slashes
-      // Assuming public folder is served at /uploads
-      // req.file.path is like 'public/uploads/teams/uuid.jpg'
-      // We want 'http://host/uploads/teams/uuid.jpg'
-
-      // Remove 'public/' from the start
-      const relativePath = filePath.replace(/^public\//, '');
-      logo_url = `${req.protocol}://${req.get('host')}/${relativePath}`;
-    }
+    const { name, tag, description, social_media, logo_url } = req.body;
 
     // Parse social_media if it's a string (multipart/form-data sends everything as strings)
     let parsedSocialMedia = social_media;

@@ -5,18 +5,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
-const path_1 = __importDefault(require("path")); // Added path import
+const path_1 = __importDefault(require("path"));
 const tournaments_routes_1 = __importDefault(require("./routes/tournaments.routes"));
 const teams_routes_1 = __importDefault(require("./routes/teams.routes"));
 const matches_routes_1 = __importDefault(require("./routes/matches.routes"));
 const standings_routes_1 = __importDefault(require("./routes/standings.routes"));
-const players_routes_1 = __importDefault(require("./routes/players.routes"));
-const files_routes_1 = __importDefault(require("./routes/files.routes")); // Added fileRoutes import
+const users_routes_1 = __importDefault(require("./routes/users.routes"));
+const files_routes_1 = __importDefault(require("./routes/files.routes"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const openapi_1 = require("./config/openapi");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)());
+// Request Logger
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 // Serve Static Files
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
 // Generate Swagger Docs
@@ -24,8 +29,8 @@ const swaggerDocs = (0, openapi_1.generateOpenApiDocs)();
 // Swagger UI
 app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocs, {
     swaggerOptions: {
-        defaultModelsExpandDepth: -1, // Hide schemas section by default
-        docExpansion: 'list' // Expand tags by default
+        defaultModelsExpandDepth: -1,
+        docExpansion: 'list'
     }
 }));
 // API Routes
@@ -33,8 +38,8 @@ app.use('/api/tournaments', tournaments_routes_1.default);
 app.use('/api/teams', teams_routes_1.default);
 app.use('/api/matches', matches_routes_1.default);
 app.use('/api/standings', standings_routes_1.default);
-app.use('/api/players', players_routes_1.default);
-app.use('/api/files', files_routes_1.default); // Added file routes
+app.use('/api/users', users_routes_1.default);
+app.use('/api/files', files_routes_1.default);
 // Global Error Handler
 app.use((err, req, res, next) => {
     if (err.name === 'UnauthorizedError') {
