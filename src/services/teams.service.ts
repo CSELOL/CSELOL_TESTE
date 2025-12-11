@@ -46,13 +46,36 @@ export const joinTeam = async (userId: number, teamId: number) => {
   return result.rows[0];
 };
 
+export const leaveTeam = async (userId: number) => {
+  const result = await pool.query(
+    `UPDATE users SET team_id = NULL, team_role = NULL WHERE id = $1 RETURNING *`,
+    [userId]
+  );
+  return result.rows[0];
+};
+
 export const getTeamById = async (teamId: number) => {
-  const result = await pool.query(`SELECT * FROM teams WHERE id = $1`, [teamId]);
+  const result = await pool.query(
+    `SELECT * FROM teams WHERE id = $1 AND deleted_at IS NULL`,
+    [teamId]
+  );
+  return result.rows[0];
+};
+
+// For historical queries (matches, tournaments) - includes soft-deleted teams
+export const getTeamByIdIncludeDeleted = async (teamId: number) => {
+  const result = await pool.query(
+    `SELECT * FROM teams WHERE id = $1`,
+    [teamId]
+  );
   return result.rows[0];
 };
 
 export const getTeamByInviteCode = async (code: string) => {
-  const result = await pool.query(`SELECT * FROM teams WHERE invite_code = $1`, [code]);
+  const result = await pool.query(
+    `SELECT * FROM teams WHERE invite_code = $1 AND deleted_at IS NULL`,
+    [code]
+  );
   return result.rows[0];
 };
 
@@ -131,4 +154,37 @@ export const getTeamTournaments = async (teamId: number) => {
     [teamId]
   );
   return result.rows;
+};
+
+export const deleteTeam = async (teamId: number) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Clear team association for all members
+    await client.query(
+      `UPDATE users SET team_id = NULL, team_role = NULL WHERE team_id = $1`,
+      [teamId]
+    );
+
+    // 2. Delete tournament registrations (only pending ones, keep approved for history)
+    await client.query(
+      `DELETE FROM tournament_registrations WHERE team_id = $1 AND status IN ('pending', 'rejected')`,
+      [teamId]
+    );
+
+    // 3. Soft delete the team (set deleted_at timestamp)
+    const result = await client.query(
+      `UPDATE teams SET deleted_at = NOW(), captain_id = NULL WHERE id = $1 RETURNING *`,
+      [teamId]
+    );
+
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 };

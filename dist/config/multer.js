@@ -3,37 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.localUpload = void 0;
+exports.localUpload = exports.genericUpload = exports.documentUpload = exports.imageUpload = void 0;
 const multer_1 = __importDefault(require("multer"));
-const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
-const uuid_1 = require("uuid");
-// Ensure directories exist
-const createDir = (dir) => {
-    if (!fs_1.default.existsSync(dir)) {
-        fs_1.default.mkdirSync(dir, { recursive: true });
-    }
-};
-// Define storage locations
-const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
-        let uploadPath = 'public/uploads/misc'; // Default
-        // You can pass a 'type' in the body to organize folders
-        if (req.body.type === 'tournament')
-            uploadPath = 'public/uploads/tournaments';
-        else if (req.body.type === 'team')
-            uploadPath = 'public/uploads/teams';
-        createDir(uploadPath);
-        cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-        // Generate unique name: uuid + original extension
-        const ext = path_1.default.extname(file.originalname);
-        cb(null, `${(0, uuid_1.v4)()}${ext}`);
-    }
-});
+// Use memory storage so we can forward the buffer to Supabase
+const memoryStorage = multer_1.default.memoryStorage();
 // Filter for Images only
-const fileFilter = (req, file, cb) => {
+const imageFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     }
@@ -41,9 +16,32 @@ const fileFilter = (req, file, cb) => {
         cb(new Error('Only images are allowed'), false);
     }
 };
-exports.localUpload = (0, multer_1.default)({
-    storage,
-    fileFilter,
+// Filter for Images and PDFs (for payment proofs)
+const documentFilter = (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+        cb(null, true);
+    }
+    else {
+        cb(new Error('Only images and PDFs are allowed'), false);
+    }
+};
+// For image uploads (logos, banners)
+exports.imageUpload = (0, multer_1.default)({
+    storage: memoryStorage,
+    fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
+// For document uploads (payment proofs)
+exports.documentUpload = (0, multer_1.default)({
+    storage: memoryStorage,
+    fileFilter: documentFilter,
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+// Generic upload (any file type)
+exports.genericUpload = (0, multer_1.default)({
+    storage: memoryStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
+// Keep old export for backward compatibility
+exports.localUpload = exports.imageUpload;
 //# sourceMappingURL=multer.js.map

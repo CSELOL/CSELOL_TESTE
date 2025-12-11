@@ -1,4 +1,5 @@
 import { db as pool } from "../config/database";
+import { captureMatchRosters } from "./match-players.service";
 
 export interface Match {
   id: number;
@@ -121,6 +122,15 @@ export async function updateMatch(id: number, data: any) {
     }
 
     await client.query('COMMIT');
+
+    // Auto-capture player rosters when match is completed
+    if (status === 'completed' && currentMatch.team_a_id && currentMatch.team_b_id) {
+      // Fire-and-forget - don't block the response
+      captureMatchRosters(id, currentMatch.team_a_id, currentMatch.team_b_id).catch(err => {
+        console.error('Failed to capture match rosters:', err);
+      });
+    }
+
     return mapMatch(currentMatch);
   } catch (e) {
     await client.query('ROLLBACK');

@@ -18,11 +18,28 @@ export async function createTournament(data: any) {
 }
 
 export async function getTournaments() {
+  const result = await pool.query(
+    `SELECT * FROM tournaments WHERE deleted_at IS NULL ORDER BY created_at DESC`
+  );
+  return result.rows;
+}
+
+// For admin views that may need to see all tournaments including deleted
+export async function getAllTournamentsIncludeDeleted() {
   const result = await pool.query(`SELECT * FROM tournaments ORDER BY created_at DESC`);
   return result.rows;
 }
 
 export async function getTournamentById(id: number) {
+  const result = await pool.query(
+    `SELECT * FROM tournaments WHERE id = $1 AND deleted_at IS NULL`,
+    [id]
+  );
+  return result.rows[0];
+}
+
+// For historical queries - includes soft-deleted tournaments
+export async function getTournamentByIdIncludeDeleted(id: number) {
   const result = await pool.query(`SELECT * FROM tournaments WHERE id = $1`, [id]);
   return result.rows[0];
 }
@@ -56,7 +73,11 @@ export async function updateTournament(id: number, data: any) {
 }
 
 export async function deleteTournament(id: number) {
-  const result = await pool.query(`DELETE FROM tournaments WHERE id = $1 RETURNING *;`, [id]);
+  // Soft delete - set deleted_at timestamp instead of DELETE
+  const result = await pool.query(
+    `UPDATE tournaments SET deleted_at = NOW() WHERE id = $1 RETURNING *;`,
+    [id]
+  );
   return result.rows[0];
 }
 
@@ -65,7 +86,10 @@ export const registerTeam = async (tournamentId: number, teamId: number, payment
   try {
     await client.query('BEGIN');
 
-    const tournamentRes = await client.query('SELECT * FROM tournaments WHERE id = $1', [tournamentId]);
+    const tournamentRes = await client.query(
+      'SELECT * FROM tournaments WHERE id = $1 AND deleted_at IS NULL',
+      [tournamentId]
+    );
     if (tournamentRes.rows.length === 0) throw new Error('Tournament not found');
 
     const existingReg = await client.query(
@@ -74,10 +98,18 @@ export const registerTeam = async (tournamentId: number, teamId: number, payment
     );
     if (existingReg.rows.length > 0) throw new Error('Team is already registered for this tournament');
 
+    // Capture roster snapshot at registration time
+    const rosterRes = await client.query(
+      `SELECT id, supabase_id, nickname, avatar_url, team_role, primary_role, secondary_role, riot_id
+       FROM users WHERE team_id = $1 AND deleted_at IS NULL`,
+      [teamId]
+    );
+    const rosterSnapshot = JSON.stringify(rosterRes.rows);
+
     const result = await client.query(
-      `INSERT INTO tournament_registrations (tournament_id, team_id, payment_proof_url, status)
-       VALUES ($1, $2, $3, 'pending') RETURNING *`,
-      [tournamentId, teamId, paymentProofUrl]
+      `INSERT INTO tournament_registrations (tournament_id, team_id, payment_proof_url, status, roster_snapshot)
+       VALUES ($1, $2, $3, 'pending', $4) RETURNING *`,
+      [tournamentId, teamId, paymentProofUrl, rosterSnapshot]
     );
 
     await client.query('COMMIT');

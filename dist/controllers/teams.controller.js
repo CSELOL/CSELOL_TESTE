@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMyTeamTournamentsController = exports.getMyTeamMatchesController = exports.transferOwnershipController = exports.refreshInviteCodeController = exports.getTeamMembersController = exports.joinTeamByCodeController = exports.getMyTeamController = exports.joinTeamController = exports.createTeamController = void 0;
+exports.leaveTeamController = exports.getMyTeamTournamentsController = exports.getMyTeamMatchesController = exports.transferOwnershipController = exports.refreshInviteCodeController = exports.getTeamMembersController = exports.joinTeamByCodeController = exports.getMyTeamController = exports.joinTeamController = exports.createTeamController = void 0;
 const teams_service_1 = require("../services/teams.service");
 // ... (rest of imports)
 // ... (inside getMyTeamMatchesController)
@@ -10,20 +10,7 @@ const createTeamController = async (req, res) => {
     try {
         const auth = req.auth;
         const supabaseId = auth.sub;
-        const { name, tag, description, social_media } = req.body;
-        let logo_url = req.body.logo_url;
-        // Handle File Upload (Local)
-        if (req.file) {
-            // Construct the Public URL
-            // The path will be relative to the public folder
-            const filePath = req.file.path.replace(/\\/g, '/'); // Fix Windows slashes
-            // Assuming public folder is served at /uploads
-            // req.file.path is like 'public/uploads/teams/uuid.jpg'
-            // We want 'http://host/uploads/teams/uuid.jpg'
-            // Remove 'public/' from the start
-            const relativePath = filePath.replace(/^public\//, '');
-            logo_url = `${req.protocol}://${req.get('host')}/${relativePath}`;
-        }
+        const { name, tag, description, social_media, logo_url } = req.body;
         // Parse social_media if it's a string (multipart/form-data sends everything as strings)
         let parsedSocialMedia = social_media;
         if (typeof social_media === 'string') {
@@ -272,4 +259,34 @@ const getMyTeamTournamentsController = async (req, res) => {
     }
 };
 exports.getMyTeamTournamentsController = getMyTeamTournamentsController;
+const leaveTeamController = async (req, res) => {
+    try {
+        const auth = req.auth;
+        const supabaseId = auth.sub;
+        // 1. Get User
+        const user = await (0, users_service_1.getUserBySupabaseId)(supabaseId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+        // 2. Check if user is in a team
+        if (!user.team_id) {
+            return res.status(400).json({ error: 'You are not in a team.' });
+        }
+        // 3. Check if user is the captain - captains cannot leave directly
+        if (user.team_role === 'CAPTAIN') {
+            return res.status(403).json({
+                error: 'Team captains cannot leave directly. Please transfer ownership first.'
+            });
+        }
+        // 4. Leave Team
+        const { leaveTeam } = require('../services/teams.service');
+        await leaveTeam(user.id);
+        res.status(200).json({ message: 'You have left the team successfully.' });
+    }
+    catch (error) {
+        console.error('Error leaving team:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+exports.leaveTeamController = leaveTeamController;
 //# sourceMappingURL=teams.controller.js.map

@@ -3,20 +3,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const teams_controller_1 = require("../controllers/teams.controller");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
-const multer_1 = require("../config/multer");
 const router = (0, express_1.Router)();
 /**
  * @swagger
  * /teams:
  *   post:
  *     summary: Create a new team
+ *     description: |
+ *       To upload a logo, first call POST /api/files/team-logo to get the URL,
+ *       then pass it as logo_url in this request.
  *     tags: [Teams]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
@@ -27,11 +29,10 @@ const router = (0, express_1.Router)();
  *               description:
  *                 type: string
  *               social_media:
+ *                 type: object
+ *               logo_url:
  *                 type: string
- *                 description: JSON string of social media links
- *               logo:
- *                 type: string
- *                 format: binary
+ *                 description: URL from /api/files/team-logo upload
  *     responses:
  *       201:
  *         description: Team created
@@ -46,7 +47,7 @@ const router = (0, express_1.Router)();
  *       401:
  *         description: Unauthorized
  */
-router.post('/', auth_middleware_1.jwtAuth, multer_1.localUpload.single('logo'), teams_controller_1.createTeamController);
+router.post('/', auth_middleware_1.jwtAuth, teams_controller_1.createTeamController);
 /**
  * @swagger
  * /teams/my-team:
@@ -95,6 +96,35 @@ router.get('/my-team/matches', auth_middleware_1.jwtAuth, teams_controller_2.get
  *         description: List of tournaments
  */
 router.get('/my-team/tournaments', auth_middleware_1.jwtAuth, teams_controller_2.getMyTeamTournamentsController);
+/**
+ * @swagger
+ * /teams/leave:
+ *   post:
+ *     summary: Leave your current team
+ *     description: |
+ *       Allows a player to leave their current team.
+ *       Team captains cannot leave directly - they must transfer ownership first.
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Left team successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Not in a team
+ *       403:
+ *         description: Captains cannot leave directly
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/leave', auth_middleware_1.jwtAuth, teams_controller_2.leaveTeamController);
 /**
  * @swagger
  * /teams/join:

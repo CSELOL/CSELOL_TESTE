@@ -1,5 +1,21 @@
 -- Database Schema Dump (Updated to match Production/Screenshot)
 
+DROP TABLE IF EXISTS activity_logs CASCADE;
+CREATE TABLE activity_logs (
+  id SERIAL PRIMARY KEY,
+  action text NOT NULL,              -- e.g., 'team.create', 'tournament.register'
+  actor_id text,                     -- supabase_id of user who performed action
+  actor_nickname text,               -- Denormalized for quick display
+  actor_role text,                   -- 'user', 'admin', 'organizer', 'system'
+  target_type text,                  -- 'team', 'tournament', 'match', 'user', 'registration'
+  target_id integer,                 -- ID of the affected entity
+  target_name text,                  -- Denormalized name for quick display
+  metadata jsonb DEFAULT '{}',       -- Additional context
+  ip_address text,
+  user_agent text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
 DROP TABLE IF EXISTS brackets CASCADE;
 CREATE TABLE brackets (
   id integer NOT NULL DEFAULT nextval('brackets_id_seq'::regclass),
@@ -50,14 +66,15 @@ CREATE TABLE matches (
 
 DROP TABLE IF EXISTS tournament_registrations CASCADE;
 CREATE TABLE tournament_registrations (
-  id integer NOT NULL DEFAULT nextval('participants_id_seq'::regclass), -- Sequence might be named differently but keeping for now
+  id integer NOT NULL DEFAULT nextval('participants_id_seq'::regclass),
   tournament_id integer,
   team_id integer,
   payment_proof_url text,
   status text DEFAULT 'pending',
   rejection_reason text, -- Added for rejection feedback
+  roster_snapshot jsonb DEFAULT NULL, -- Snapshot of team roster at registration time
   registered_at timestamp without time zone DEFAULT now(),
-  approved boolean DEFAULT false, -- Keeping for compatibility if mixed usage, but status covers it
+  approved boolean DEFAULT false,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
   PRIMARY KEY (id)
@@ -110,6 +127,7 @@ CREATE TABLE teams (
   social_media jsonb,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  deleted_at timestamp without time zone DEFAULT NULL, -- Soft delete timestamp
   PRIMARY KEY (id)
 );
 
@@ -124,6 +142,7 @@ CREATE TABLE tournaments (
   status text DEFAULT 'draft'::text,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  deleted_at timestamp without time zone DEFAULT NULL, -- Soft delete timestamp
   banner_url text,
   logo_url text,
   format text DEFAULT 'single_elimination'::text,
@@ -154,6 +173,7 @@ CREATE TABLE users (
   role text DEFAULT 'user'::text,  -- System role: 'user', 'admin', 'organizer'
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  deleted_at timestamp without time zone DEFAULT NULL, -- Soft delete timestamp
   PRIMARY KEY (id)
 );
 

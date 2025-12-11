@@ -71,7 +71,7 @@ router.post('/', jwtAuth, createTeamController);
  *       401:
  *         description: Unauthorized
  */
-import { getMyTeamController, joinTeamByCodeController, getTeamMembersController, refreshInviteCodeController, getMyTeamMatchesController, getMyTeamTournamentsController } from '../controllers/teams.controller';
+import { getMyTeamController, joinTeamByCodeController, getTeamMembersController, refreshInviteCodeController, getMyTeamMatchesController, getMyTeamTournamentsController, leaveTeamController, deleteTeamController } from '../controllers/teams.controller';
 router.get('/my-team', jwtAuth, getMyTeamController);
 
 /**
@@ -101,6 +101,68 @@ router.get('/my-team/matches', jwtAuth, getMyTeamMatchesController);
  *         description: List of tournaments
  */
 router.get('/my-team/tournaments', jwtAuth, getMyTeamTournamentsController);
+
+/**
+ * @swagger
+ * /teams/leave:
+ *   post:
+ *     summary: Leave your current team
+ *     description: |
+ *       Allows a player to leave their current team.
+ *       Team captains cannot leave directly - they must transfer ownership first.
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Left team successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Not in a team
+ *       403:
+ *         description: Captains cannot leave directly
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/leave', jwtAuth, leaveTeamController);
+
+/**
+ * @swagger
+ * /teams/my-team:
+ *   delete:
+ *     summary: Delete your team (Captain only)
+ *     description: |
+ *       Allows the team captain to delete their team.
+ *       Cannot delete if the team is in an active (in_progress) tournament.
+ *       All team members will be removed from the team.
+ *       Tournament registrations and standings will be deleted.
+ *     tags: [Teams]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Team deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Not in a team or team is in active tournament
+ *       403:
+ *         description: Only captains can delete the team
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/my-team', jwtAuth, deleteTeamController);
 
 
 /**

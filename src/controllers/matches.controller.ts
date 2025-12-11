@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as matchesService from "../services/matches.service";
+import * as matchPlayersService from "../services/match-players.service";
 
 // Fixed: Now accepts tournamentId either from URL params ( /tournaments/:id/matches ) or Query string
 export async function getMatches(req: Request, res: Response) {
@@ -41,4 +42,52 @@ export async function updateMatch(req: Request, res: Response) {
 export async function deleteMatch(req: Request, res: Response) {
   await matchesService.deleteMatch(Number(req.params.id));
   return res.json({ message: "Match deleted" });
+}
+
+// --- MATCH PLAYERS ---
+
+/**
+ * GET /api/matches/:id/players
+ * Get all players who participated in a match
+ */
+export async function getMatchPlayers(req: Request, res: Response) {
+  try {
+    const matchId = Number(req.params.id);
+    const players = await matchPlayersService.getMatchPlayers(matchId);
+    return res.json(players);
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to fetch match players" });
+  }
+}
+
+/**
+ * PUT /api/matches/:id/players
+ * Set players for a match (admin only)
+ * Body: { teamAPlayerIds: number[], teamBPlayerIds: number[], teamAId: number, teamBId: number }
+ */
+export async function setMatchPlayers(req: Request, res: Response) {
+  try {
+    const matchId = Number(req.params.id);
+    const { teamAPlayerIds, teamBPlayerIds, teamAId, teamBId } = req.body;
+
+    if (!teamAPlayerIds || !teamBPlayerIds || !teamAId || !teamBId) {
+      return res.status(400).json({
+        error: "Required: teamAPlayerIds, teamBPlayerIds, teamAId, teamBId"
+      });
+    }
+
+    await matchPlayersService.setMatchPlayers(
+      matchId,
+      teamAPlayerIds,
+      teamBPlayerIds,
+      teamAId,
+      teamBId
+    );
+
+    return res.json({ message: "Match players updated successfully" });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to set match players" });
+  }
 }

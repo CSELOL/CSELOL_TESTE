@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { db } from '../config/database';
 import { supabase } from '../config/supabase';
+import { logActivity } from '../services/activity-log.service';
+import { getUserBySupabaseId } from '../services/users.service';
 
 // --- 1. GET SINGLE TOURNAMENT ---
 export const getTournamentById = async (req: Request, res: Response) => {
@@ -71,6 +73,10 @@ export const registerForTournament = async (req: Request, res: Response) => {
             return res.status(409).json({ error: "Team already registered." });
         }
 
+        // Get tournament info for logging
+        const tournamentRes = await db.query("SELECT * FROM tournaments WHERE id = $1", [id]);
+        const tournament = tournamentRes.rows[0];
+
         const insertQuery = `
             INSERT INTO tournament_registrations 
             (tournament_id, team_id, payment_proof_url, status) 
@@ -78,6 +84,21 @@ export const registerForTournament = async (req: Request, res: Response) => {
             RETURNING *
         `;
         const result = await db.query(insertQuery, [id, team.id, payment_proof_url]);
+
+        // Log activity
+        const user = await getUserBySupabaseId(userId);
+        logActivity({
+            action: 'tournament.register',
+            actorId: userId,
+            actorNickname: user?.nickname,
+            actorRole: user?.role,
+            targetType: 'registration',
+            targetId: result.rows[0].id,
+            targetName: `${team.name} → ${tournament?.tournament_name}`,
+            metadata: { team_id: team.id, tournament_id: id },
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
 
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -88,10 +109,22 @@ export const registerForTournament = async (req: Request, res: Response) => {
 
 // --- 4. UPDATE STATUS ---
 export const updateRegistrationStatus = async (req: Request, res: Response) => {
-    const { id } = req.params; // Fixed from regId
+    const { id } = req.params;
+    const auth = (req as any).auth;
+    const adminId = auth?.sub;
     const { status, rejection_reason } = req.body;
 
     try {
+        // Get registration info before update for logging
+        const regBefore = await db.query(
+            `SELECT tr.*, t.name as team_name, tour.tournament_name 
+             FROM tournament_registrations tr
+             JOIN teams t ON tr.team_id = t.id
+             JOIN tournaments tour ON tr.tournament_id = tour.id
+             WHERE tr.id = $1`,
+            [id]
+        );
+
         const query = `
             UPDATE tournament_registrations 
             SET status = $1, rejection_reason = $2, updated_at = NOW() 
@@ -102,6 +135,29 @@ export const updateRegistrationStatus = async (req: Request, res: Response) => {
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Registration not found" });
+        }
+
+        // Log activity
+        if (adminId) {
+            const user = await getUserBySupabaseId(adminId);
+            const actionType = status.toUpperCase() === 'APPROVED'
+                ? 'tournament.approve_registration'
+                : 'tournament.reject_registration';
+
+            logActivity({
+                action: actionType as any,
+                actorId: adminId,
+                actorNickname: user?.nickname,
+                actorRole: user?.role || 'admin',
+                targetType: 'registration',
+                targetId: parseInt(id),
+                targetName: regBefore.rows[0]
+                    ? `${regBefore.rows[0].team_name} → ${regBefore.rows[0].tournament_name}`
+                    : undefined,
+                metadata: { status, rejection_reason },
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
+            });
         }
 
         res.json(result.rows[0]);
@@ -174,6 +230,10 @@ export const withdrawRegistration = async (req: Request, res: Response) => {
         }
         const team = teamRes.rows[0];
 
+        // Get tournament info for logging
+        const tournamentRes = await db.query("SELECT * FROM tournaments WHERE id = $1", [id]);
+        const tournament = tournamentRes.rows[0];
+
         // 2. Delete Registration
         const query = `
             DELETE FROM tournament_registrations 
@@ -185,6 +245,21 @@ export const withdrawRegistration = async (req: Request, res: Response) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "Registration not found or already withdrawn." });
         }
+
+        // Log activity
+        const user = await getUserBySupabaseId(userId);
+        logActivity({
+            action: 'tournament.withdraw_registration',
+            actorId: userId,
+            actorNickname: user?.nickname,
+            actorRole: user?.role,
+            targetType: 'registration',
+            targetId: result.rows[0].id,
+            targetName: `${team.name} → ${tournament?.tournament_name}`,
+            metadata: { team_id: team.id, tournament_id: id },
+            ipAddress: req.ip,
+            userAgent: req.get('User-Agent')
+        });
 
         res.json({ message: "Registration withdrawn successfully." });
     } catch (err) {

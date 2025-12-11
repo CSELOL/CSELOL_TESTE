@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z, ZodError } from 'zod';
 import { createTeam, joinTeam, getTeamById, getTeamMatches, getTeamTournaments } from '../services/teams.service';
+import { logActivity } from '../services/activity-log.service';
 
 // ... (rest of imports)
 
@@ -58,6 +59,21 @@ export const createTeamController = async (req: Request, res: Response) => {
 
     // 2. Create Team
     const team = await createTeam(name, tag, logo_url, description, parsedSocialMedia, supabaseId);
+
+    // 3. Log Activity
+    logActivity({
+      action: 'team.create',
+      actorId: supabaseId,
+      actorNickname: user.nickname,
+      actorRole: user.role,
+      targetType: 'team',
+      targetId: team.id,
+      targetName: team.name,
+      metadata: { tag: team.tag },
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
     res.status(201).json(team);
   } catch (error) {
     console.error('Error creating team:', error);
@@ -153,7 +169,7 @@ export const joinTeamByCodeController = async (req: Request, res: Response) => {
     }
 
     // 2. Find Team by Code
-    const { getTeamByInviteCode, joinTeam } = require('../services/teams.service'); // Lazy load to avoid circular dependency if any, or just import
+    const { getTeamByInviteCode, joinTeam } = require('../services/teams.service');
     const team = await getTeamByInviteCode(code);
 
     if (!team) {
@@ -162,6 +178,19 @@ export const joinTeamByCodeController = async (req: Request, res: Response) => {
 
     // 3. Join Team
     await joinTeam(user.id, team.id);
+
+    // 4. Log Activity
+    logActivity({
+      action: 'team.join',
+      actorId: supabaseId,
+      actorNickname: user.nickname,
+      actorRole: user.role,
+      targetType: 'team',
+      targetId: team.id,
+      targetName: team.name,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
 
     res.status(200).json({ message: 'Joined team successfully.', team });
   } catch (error) {
@@ -291,4 +320,114 @@ export const getMyTeamTournamentsController = async (req: Request, res: Response
   }
 };
 
+export const leaveTeamController = async (req: Request, res: Response) => {
+  try {
+    const auth = (req as any).auth;
+    const supabaseId = auth.sub;
 
+    // 1. Get User
+    const user = await getUserBySupabaseId(supabaseId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // 2. Check if user is in a team
+    if (!user.team_id) {
+      return res.status(400).json({ error: 'You are not in a team.' });
+    }
+
+    // 3. Check if user is the captain - captains cannot leave directly
+    if (user.team_role === 'CAPTAIN') {
+      return res.status(403).json({
+        error: 'Team captains cannot leave directly. Please transfer ownership first.'
+      });
+    }
+
+    const teamId = user.team_id;
+    const team = await getTeamById(teamId);
+
+    // 4. Leave Team
+    const { leaveTeam } = require('../services/teams.service');
+    await leaveTeam(user.id);
+
+    // 5. Log Activity
+    logActivity({
+      action: 'team.leave',
+      actorId: supabaseId,
+      actorNickname: user.nickname,
+      actorRole: user.role,
+      targetType: 'team',
+      targetId: teamId,
+      targetName: team?.name,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({ message: 'You have left the team successfully.' });
+  } catch (error) {
+    console.error('Error leaving team:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteTeamController = async (req: Request, res: Response) => {
+  try {
+    const auth = (req as any).auth;
+    const supabaseId = auth.sub;
+
+    // 1. Get User
+    const user = await getUserBySupabaseId(supabaseId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // 2. Check if user is in a team
+    if (!user.team_id) {
+      return res.status(400).json({ error: 'You are not in a team.' });
+    }
+
+    // 3. Check if user is the captain - only captains can delete the team
+    if (user.team_role !== 'CAPTAIN') {
+      return res.status(403).json({
+        error: 'Only the team captain can delete the team.'
+      });
+    }
+
+    const teamId = user.team_id;
+    const team = await getTeamById(teamId);
+
+    // 4. Check if team is in any active (in_progress) tournaments
+    const { getTeamTournaments, deleteTeam } = require('../services/teams.service');
+    const tournaments = await getTeamTournaments(teamId);
+    const activeTournament = tournaments.find(
+      (t: any) => t.status === 'in_progress' && t.registration_status === 'APPROVED'
+    );
+
+    if (activeTournament) {
+      return res.status(400).json({
+        error: `Cannot delete team while participating in an active tournament: ${activeTournament.name}`
+      });
+    }
+
+    // 5. Delete Team
+    await deleteTeam(teamId);
+
+    // 6. Log Activity
+    logActivity({
+      action: 'team.delete',
+      actorId: supabaseId,
+      actorNickname: user.nickname,
+      actorRole: user.role,
+      targetType: 'team',
+      targetId: teamId,
+      targetName: team?.name,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+
+    res.status(200).json({ message: 'Team deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting team:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

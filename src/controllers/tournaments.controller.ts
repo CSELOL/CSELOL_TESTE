@@ -1,12 +1,34 @@
 import { Request, Response } from 'express';
-import { createTournament, getTournaments, updateTournament, deleteTournament, generateBracket, generateGroupStage } from '../services/tournaments.service';
+import { createTournament, getTournaments, updateTournament, deleteTournament, generateBracket, generateGroupStage, getTournamentById } from '../services/tournaments.service';
 import { db } from '../config/database';
+import { logActivity } from '../services/activity-log.service';
+import { getUserBySupabaseId } from '../services/users.service';
 
 // ... (keep createTournamentController, getAllTournamentsController, updateTournamentController, deleteTournamentController as they are)
 
 export async function createTournamentController(req: Request, res: Response) {
   try {
+    const auth = (req as any).auth;
+    const supabaseId = auth?.sub;
+
     const tournament = await createTournament(req.body);
+
+    // Log activity
+    if (supabaseId) {
+      const user = await getUserBySupabaseId(supabaseId);
+      logActivity({
+        action: 'tournament.create',
+        actorId: supabaseId,
+        actorNickname: user?.nickname,
+        actorRole: user?.role || 'admin',
+        targetType: 'tournament',
+        targetId: tournament.id,
+        targetName: tournament.tournament_name,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+    }
+
     return res.status(201).json(tournament);
   } catch (err: any) {
     console.error(err);
@@ -26,11 +48,32 @@ export async function getAllTournamentsController(req: Request, res: Response) {
 
 export async function updateTournamentController(req: Request, res: Response) {
   try {
+    const auth = (req as any).auth;
+    const supabaseId = auth?.sub;
     const id = parseInt(req.params.id);
+
     const tournament = await updateTournament(id, req.body);
     if (!tournament) {
       return res.status(404).json({ error: 'Tournament not found' });
     }
+
+    // Log activity
+    if (supabaseId) {
+      const user = await getUserBySupabaseId(supabaseId);
+      logActivity({
+        action: 'tournament.update',
+        actorId: supabaseId,
+        actorNickname: user?.nickname,
+        actorRole: user?.role || 'admin',
+        targetType: 'tournament',
+        targetId: tournament.id,
+        targetName: tournament.tournament_name,
+        metadata: { changes: req.body },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+    }
+
     return res.json(tournament);
   } catch (err: any) {
     console.error(err);
@@ -40,11 +83,34 @@ export async function updateTournamentController(req: Request, res: Response) {
 
 export async function deleteTournamentController(req: Request, res: Response) {
   try {
+    const auth = (req as any).auth;
+    const supabaseId = auth?.sub;
     const id = parseInt(req.params.id);
+
+    // Get tournament info before deletion for logging
+    const tournamentBefore = await getTournamentById(id);
+
     const tournament = await deleteTournament(id);
     if (!tournament) {
       return res.status(404).json({ error: 'Tournament not found' });
     }
+
+    // Log activity
+    if (supabaseId) {
+      const user = await getUserBySupabaseId(supabaseId);
+      logActivity({
+        action: 'tournament.delete',
+        actorId: supabaseId,
+        actorNickname: user?.nickname,
+        actorRole: user?.role || 'admin',
+        targetType: 'tournament',
+        targetId: id,
+        targetName: tournamentBefore?.tournament_name,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+    }
+
     return res.status(204).send();
   } catch (err: any) {
     console.error(err);

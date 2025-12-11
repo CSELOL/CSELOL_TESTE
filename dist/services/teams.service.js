@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTeamTournaments = exports.getTeamMatches = exports.transferTeamOwnership = exports.refreshInviteCode = exports.getTeamMembers = exports.getTeamByInviteCode = exports.getTeamById = exports.joinTeam = exports.createTeam = void 0;
+exports.getTeamTournaments = exports.getTeamMatches = exports.transferTeamOwnership = exports.refreshInviteCode = exports.getTeamMembers = exports.getTeamByInviteCode = exports.getTeamById = exports.leaveTeam = exports.joinTeam = exports.createTeam = void 0;
 const database_1 = require("../config/database");
 const uuid_1 = require("uuid");
 const createTeam = async (name, tag, logoUrl, description, socialMedia, userId) => {
@@ -30,6 +30,11 @@ const joinTeam = async (userId, teamId) => {
     return result.rows[0];
 };
 exports.joinTeam = joinTeam;
+const leaveTeam = async (userId) => {
+    const result = await database_1.db.query(`UPDATE users SET team_id = NULL, team_role = NULL WHERE id = $1 RETURNING *`, [userId]);
+    return result.rows[0];
+};
+exports.leaveTeam = leaveTeam;
 const getTeamById = async (teamId) => {
     const result = await database_1.db.query(`SELECT * FROM teams WHERE id = $1`, [teamId]);
     return result.rows[0];

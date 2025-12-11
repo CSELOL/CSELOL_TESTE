@@ -57,7 +57,8 @@ const registerForTournament = async (req, res) => {
     if (!payment_proof_url)
         return res.status(400).json({ error: "Payment proof required" });
     try {
-        const teamRes = await database_1.db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
+        // Find team where user is captain
+        const teamRes = await database_1.db.query("SELECT * FROM teams WHERE captain_id = $1", [userId]);
         if (teamRes.rows.length === 0) {
             return res.status(400).json({ error: "You must be a Team Captain." });
         }
@@ -150,8 +151,8 @@ const withdrawRegistration = async (req, res) => {
     if (!userId)
         return res.status(401).json({ error: "Unauthorized" });
     try {
-        // 1. Get User's Team
-        const teamRes = await database_1.db.query("SELECT * FROM teams WHERE created_by_user_id = $1", [userId]);
+        // 1. Get User's Team (where user is captain)
+        const teamRes = await database_1.db.query("SELECT * FROM teams WHERE captain_id = $1", [userId]);
         if (teamRes.rows.length === 0) {
             return res.status(400).json({ error: "You must be a Team Captain." });
         }

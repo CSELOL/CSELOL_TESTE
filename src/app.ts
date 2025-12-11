@@ -7,6 +7,7 @@ import matchRoutes from './routes/matches.routes';
 import standingRoutes from './routes/standings.routes';
 import userRoutes from './routes/users.routes';
 import fileRoutes from './routes/files.routes';
+import activityLogRoutes from './routes/activity-log.routes';
 import swaggerUi from 'swagger-ui-express';
 import { generateOpenApiDocs } from './config/openapi';
 
@@ -42,6 +43,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/standings', standingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/admin/activity-logs', activityLogRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
